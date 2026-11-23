@@ -42,26 +42,24 @@ async fn get_latest_releases(
     )
     .await?;
 
-    // Check cached metadata locally (fast response without blocking on remote API);
-    // Uncached titles are queued asynchronously into the rate-limited background worker
+    // Collect all parsed anime titles from scraped releases
+    let titles: Vec<String> = releases
+        .iter()
+        .map(|r| r.parsed.anime_title.clone())
+        .filter(|t| !t.is_empty())
+        .collect();
+
+    // High-performance batch search: check local DB first (title_mappings & anime_metadata),
+    // and only if not found in local DB does it queue to AniList API in the background.
+    let metadata_map = state
+        .anilist_client
+        .resolve_titles_batch(&state.db, &titles)
+        .await;
+
+    // Attach resolved metadata in-memory
     for rel in &mut releases {
-        if !rel.parsed.anime_title.is_empty() {
-            if let Ok(Some(cached)) = state
-                .anilist_client
-                .get_cached_metadata(&state.db, &rel.parsed.anime_title)
-                .await
-            {
-                rel.anilist_metadata = Some(cached);
-            } else if let Ok(false) = state
-                .anilist_client
-                .is_title_checked(&state.db, &rel.parsed.anime_title)
-                .await
-            {
-                state
-                    .anilist_client
-                    .enqueue_metadata_sync(&rel.parsed.anime_title)
-                    .await;
-            }
+        if let Some(meta) = metadata_map.get(&rel.parsed.anime_title) {
+            rel.anilist_metadata = Some(meta.clone());
         }
     }
 
@@ -83,24 +81,20 @@ async fn get_user_releases(
     )
     .await?;
 
+    let titles: Vec<String> = releases
+        .iter()
+        .map(|r| r.parsed.anime_title.clone())
+        .filter(|t| !t.is_empty())
+        .collect();
+
+    let metadata_map = state
+        .anilist_client
+        .resolve_titles_batch(&state.db, &titles)
+        .await;
+
     for rel in &mut releases {
-        if !rel.parsed.anime_title.is_empty() {
-            if let Ok(Some(cached)) = state
-                .anilist_client
-                .get_cached_metadata(&state.db, &rel.parsed.anime_title)
-                .await
-            {
-                rel.anilist_metadata = Some(cached);
-            } else if let Ok(false) = state
-                .anilist_client
-                .is_title_checked(&state.db, &rel.parsed.anime_title)
-                .await
-            {
-                state
-                    .anilist_client
-                    .enqueue_metadata_sync(&rel.parsed.anime_title)
-                    .await;
-            }
+        if let Some(meta) = metadata_map.get(&rel.parsed.anime_title) {
+            rel.anilist_metadata = Some(meta.clone());
         }
     }
 

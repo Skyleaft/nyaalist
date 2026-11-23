@@ -1,7 +1,7 @@
 use chrono::Utc;
 use serde_json::json;
 use sqlx::PgPool;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
@@ -15,6 +15,52 @@ struct RateLimiter {
     last_request: Instant,
     retry_after_until: Option<Instant>,
     min_interval: Duration,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct MappedMetadataRow {
+    mapping_key: String,
+    id: i32,
+    mal_id: Option<i32>,
+    title_romaji: String,
+    title_english: Option<String>,
+    title_native: Option<String>,
+    format: Option<String>,
+    status: Option<String>,
+    episodes: Option<i32>,
+    season: Option<String>,
+    season_year: Option<i32>,
+    genres: Option<Vec<String>>,
+    average_score: Option<i32>,
+    description: Option<String>,
+    cover_image_url: Option<String>,
+    cover_image_local_path: Option<String>,
+    banner_image_url: Option<String>,
+    last_synced_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<MappedMetadataRow> for AnimeMetadata {
+    fn from(r: MappedMetadataRow) -> Self {
+        Self {
+            id: r.id,
+            mal_id: r.mal_id,
+            title_romaji: r.title_romaji,
+            title_english: r.title_english,
+            title_native: r.title_native,
+            format: r.format,
+            status: r.status,
+            episodes: r.episodes,
+            season: r.season,
+            season_year: r.season_year,
+            genres: r.genres,
+            average_score: r.average_score,
+            description: r.description,
+            cover_image_url: r.cover_image_url,
+            cover_image_local_path: r.cover_image_local_path,
+            banner_image_url: r.banner_image_url,
+            last_synced_at: r.last_synced_at,
+        }
+    }
 }
 
 pub struct AniListClient {
@@ -130,6 +176,210 @@ impl AniListClient {
         if in_flight.insert(cleaned) {
             let _ = self.sync_tx.send(anime_title.trim().to_string());
         }
+    }
+
+    /// High-performance batch resolver:
+    /// 1. Searches local DB (title_mappings joined with anime_metadata) in one query.
+    /// 2. For unmapped titles, searches local anime_metadata table directly (romaji, english, synonyms).
+    /// 3. Automatically saves newly discovered local mappings to title_mappings.
+    /// 4. Only if metadata does NOT exist in local DB does it enqueue to AniList API in the background.
+    pub async fn resolve_titles_batch(
+        &self,
+        db: &PgPool,
+        raw_titles: &[String],
+    ) -> HashMap<String, AnimeMetadata> {
+        let mut results: HashMap<String, AnimeMetadata> = HashMap::new();
+        if raw_titles.is_empty() {
+            return results;
+        }
+
+        // Map cleaned title -> list of original raw titles
+        let mut cleaned_to_raw: HashMap<String, Vec<String>> = HashMap::new();
+        for raw in raw_titles {
+            let cleaned = raw.trim().to_lowercase();
+            if !cleaned.is_empty() {
+                cleaned_to_raw.entry(cleaned).or_default().push(raw.clone());
+            }
+        }
+
+        let all_cleaned: Vec<String> = cleaned_to_raw.keys().cloned().collect();
+        if all_cleaned.is_empty() {
+            return results;
+        }
+
+        // 1. Batch lookup in title_mappings + anime_metadata (JOIN)
+        let mapped_rows: Vec<MappedMetadataRow> = match sqlx::query_as::<_, MappedMetadataRow>(
+            r#"
+            SELECT
+                tm.raw_title_cleaned AS mapping_key,
+                m.id, m.mal_id, m.title_romaji, m.title_english, m.title_native,
+                m.format, m.status, m.episodes, m.season, m.season_year,
+                m.genres, m.average_score, m.description, m.cover_image_url,
+                m.cover_image_local_path, m.banner_image_url, m.last_synced_at
+            FROM title_mappings tm
+            INNER JOIN anime_metadata m ON tm.anilist_id = m.id
+            WHERE tm.raw_title_cleaned = ANY($1)
+            "#
+        )
+        .bind(&all_cleaned)
+        .fetch_all(db)
+        .await {
+            Ok(rows) => rows,
+            Err(e) => {
+                tracing::warn!("Failed to query title_mappings batch: {}", e);
+                Vec::new()
+            }
+        };
+
+        let mut found_keys: HashSet<String> = HashSet::new();
+
+        for row in mapped_rows {
+            let key = row.mapping_key.clone();
+            found_keys.insert(key.clone());
+            let meta = AnimeMetadata::from(row);
+            if let Some(raw_list) = cleaned_to_raw.get(&key) {
+                for r in raw_list {
+                    results.insert(r.clone(), meta.clone());
+                }
+            }
+        }
+
+        // Also check if any remaining titles are negatively cached (already searched & not on AniList)
+        let negative_mappings: HashSet<String> = match sqlx::query_as::<_, (String,)>(
+            "SELECT raw_title_cleaned FROM title_mappings WHERE raw_title_cleaned = ANY($1) AND anilist_id IS NULL"
+        )
+        .bind(&all_cleaned)
+        .fetch_all(db)
+        .await {
+            Ok(neg) => neg.into_iter().map(|(k,)| k).collect(),
+            Err(_) => HashSet::new(),
+        };
+
+        // 2. For unmapped titles, search directly in local anime_metadata
+        let unmapped_cleaned: Vec<String> = all_cleaned
+            .into_iter()
+            .filter(|k| !found_keys.contains(k) && !negative_mappings.contains(k))
+            .collect();
+
+        if !unmapped_cleaned.is_empty() {
+            // Direct title search in local anime_metadata by romaji or english title
+            let local_matches: Vec<AnimeMetadata> = match sqlx::query_as::<_, AnimeMetadata>(
+                r#"
+                SELECT
+                    id, mal_id, title_romaji, title_english, title_native,
+                    format, status, episodes, season, season_year,
+                    genres, average_score, description, cover_image_url,
+                    cover_image_local_path, banner_image_url, last_synced_at
+                FROM anime_metadata
+                WHERE LOWER(title_romaji) = ANY($1)
+                   OR LOWER(title_english) = ANY($1)
+                "#
+            )
+            .bind(&unmapped_cleaned)
+            .fetch_all(db)
+            .await {
+                Ok(records) => records,
+                Err(e) => {
+                    tracing::warn!("Failed to search local anime_metadata batch: {}", e);
+                    Vec::new()
+                }
+            };
+
+            for meta in local_matches {
+                let romaji_lower = meta.title_romaji.to_lowercase();
+                let english_lower = meta.title_english.as_deref().unwrap_or("").to_lowercase();
+
+                // Find matching cleaned keys
+                let mut matched_cleaned_keys = Vec::new();
+                for key in &unmapped_cleaned {
+                    if *key == romaji_lower || (!english_lower.is_empty() && *key == english_lower) {
+                        matched_cleaned_keys.push(key.clone());
+                    }
+                }
+
+                for key in matched_cleaned_keys {
+                    found_keys.insert(key.clone());
+                    if let Some(raw_list) = cleaned_to_raw.get(&key) {
+                        for r in raw_list {
+                            results.insert(r.clone(), meta.clone());
+                        }
+                    }
+
+                    // Save local mapping to title_mappings table
+                    let _ = sqlx::query(
+                        "INSERT INTO title_mappings (raw_title_cleaned, anilist_id, confidence) VALUES ($1, $2, 1.0) ON CONFLICT (raw_title_cleaned) DO UPDATE SET anilist_id = EXCLUDED.anilist_id"
+                    )
+                    .bind(&key)
+                    .bind(meta.id)
+                    .execute(db)
+                    .await;
+                }
+            }
+        }
+
+        // 3. For any titles still unmapped, attempt fuzzy / ILIKE lookup in local DB
+        let still_unmapped: Vec<String> = unmapped_cleaned
+            .into_iter()
+            .filter(|k| !found_keys.contains(k))
+            .collect();
+
+        let mut to_enqueue_api: Vec<String> = Vec::new();
+
+        for key in still_unmapped {
+            // Fuzzy search in local anime_metadata
+            let fuzzy_match: Option<AnimeMetadata> = sqlx::query_as::<_, AnimeMetadata>(
+                r#"
+                SELECT
+                    id, mal_id, title_romaji, title_english, title_native,
+                    format, status, episodes, season, season_year,
+                    genres, average_score, description, cover_image_url,
+                    cover_image_local_path, banner_image_url, last_synced_at
+                FROM anime_metadata
+                WHERE LOWER(title_romaji) LIKE '%' || $1 || '%'
+                   OR LOWER(title_english) LIKE '%' || $1 || '%'
+                ORDER BY average_score DESC NULLS LAST
+                LIMIT 1
+                "#
+            )
+            .bind(&key)
+            .fetch_optional(db)
+            .await
+            .ok()
+            .flatten();
+
+            if let Some(meta) = fuzzy_match {
+                // Found locally!
+                found_keys.insert(key.clone());
+                if let Some(raw_list) = cleaned_to_raw.get(&key) {
+                    for r in raw_list {
+                        results.insert(r.clone(), meta.clone());
+                    }
+                }
+
+                // Save mapping
+                let _ = sqlx::query(
+                    "INSERT INTO title_mappings (raw_title_cleaned, anilist_id, confidence) VALUES ($1, $2, 0.9) ON CONFLICT (raw_title_cleaned) DO UPDATE SET anilist_id = EXCLUDED.anilist_id"
+                )
+                .bind(&key)
+                .bind(meta.id)
+                .execute(db)
+                .await;
+            } else {
+                // Not found anywhere in local DB -> queue for AniList API
+                if let Some(raw_list) = cleaned_to_raw.get(&key) {
+                    if let Some(first_raw) = raw_list.first() {
+                        to_enqueue_api.push(first_raw.clone());
+                    }
+                }
+            }
+        }
+
+        // 4. Asynchronously enqueue missing titles to AniList API in the background
+        for title in to_enqueue_api {
+            self.enqueue_metadata_sync(&title).await;
+        }
+
+        results
     }
 
     /// Read cached metadata directly from PostgreSQL without hitting AniList API

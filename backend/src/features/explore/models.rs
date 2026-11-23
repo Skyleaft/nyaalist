@@ -35,6 +35,30 @@ pub struct AnimeMetadata {
     pub last_synced_at: DateTime<Utc>,
 }
 
+impl From<crate::entities::anime_metadata::Model> for AnimeMetadata {
+    fn from(m: crate::entities::anime_metadata::Model) -> Self {
+        Self {
+            id: m.id,
+            mal_id: m.mal_id,
+            title_romaji: m.title_romaji,
+            title_english: m.title_english,
+            title_native: m.title_native,
+            format: m.format,
+            status: m.status,
+            episodes: m.episodes,
+            season: m.season,
+            season_year: m.season_year,
+            genres: m.genres,
+            average_score: m.average_score,
+            description: m.description,
+            cover_image_url: m.cover_image_url,
+            cover_image_local_path: m.cover_image_local_path,
+            banner_image_url: m.banner_image_url,
+            last_synced_at: m.last_synced_at,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NyaaRelease {
     pub id: i64,
