@@ -12,6 +12,7 @@
   let searchQuery = $state<string>('');
   let userQuery = $state<string>('');
   let page = $state<number>(1);
+  let sortOrder = $state<'desc' | 'asc'>('desc');
 
   // Modal State
   let selectedAnime = $state<AnimeMetadata | null>(null);
@@ -43,13 +44,21 @@
     loading = true;
     error = null;
     try {
+      const q = searchQuery.trim() || undefined;
       if (userQuery.trim().length > 0) {
-        releases = await api.explore.getUserReleases(userQuery.trim(), page);
+        releases = await api.explore.getUserReleases(userQuery.trim(), {
+          page,
+          query: q,
+          sort: 'id',
+          order: sortOrder
+        });
       } else {
         releases = await api.explore.getLatest({
           category,
           page,
-          query: searchQuery.trim() || undefined
+          query: q,
+          sort: 'id',
+          order: sortOrder
         });
       }
     } catch (err: any) {
@@ -63,6 +72,50 @@
     e.preventDefault();
     page = 1;
     loadReleases();
+  }
+
+  function toggleDateSort() {
+    sortOrder = sortOrder === 'desc' ? 'asc' : 'desc';
+    page = 1;
+    loadReleases();
+  }
+
+  function filterByUploader(uploaderName?: string) {
+    if (!uploaderName) return;
+    userQuery = uploaderName;
+    page = 1;
+    loadReleases();
+  }
+
+  function formatDate(dateStr: string): string {
+    if (!dateStr) return 'N/A';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const now = new Date();
+      const diffMs = now.getTime() - d.getTime();
+      const diffSec = Math.floor(diffMs / 1000);
+      const diffMin = Math.floor(diffSec / 60);
+      const diffHour = Math.floor(diffMin / 60);
+      const diffDay = Math.floor(diffHour / 24);
+
+      if (diffSec < 60) return 'Just now';
+      if (diffMin < 60) return `${diffMin}m ago`;
+      if (diffHour < 24) return `${diffHour}h ago`;
+      if (diffDay < 7) return `${diffDay}d ago`;
+      return d.toISOString().split('T')[0];
+    } catch {
+      return dateStr;
+    }
+  }
+
+  function formatFullDate(dateStr: string): string {
+    try {
+      const d = new Date(dateStr);
+      return isNaN(d.getTime()) ? dateStr : d.toLocaleString();
+    } catch {
+      return dateStr;
+    }
   }
 
   function clearUserFilter() {
@@ -139,12 +192,25 @@
       <div class="flex items-center gap-2">
         {#if userQuery.trim().length > 0}
           <div class="flex items-center gap-2 bg-[#121212] border border-[#00E5FF]/40 rounded-xl px-3 py-1.5 text-xs font-mono">
-            <span class="text-[#98989D]">User Filter:</span>
+            <span class="text-[#98989D]">Uploader:</span>
             <span class="text-[#00E5FF] font-bold">@{userQuery}</span>
             <button
               onclick={clearUserFilter}
               class="text-gray-400 hover:text-[#FF453A] ml-1 cursor-pointer font-bold"
-              title="Clear user filter"
+              title="Clear uploader filter"
+            >
+              ✕
+            </button>
+          </div>
+        {/if}
+        {#if searchQuery.trim().length > 0}
+          <div class="flex items-center gap-2 bg-[#121212] border border-[#2C2C2E] rounded-xl px-3 py-1.5 text-xs font-mono">
+            <span class="text-[#98989D]">Query:</span>
+            <span class="text-white font-bold">"{searchQuery.trim()}"</span>
+            <button
+              onclick={() => { searchQuery = ''; page = 1; loadReleases(); }}
+              class="text-gray-400 hover:text-[#FF453A] ml-1 cursor-pointer font-bold"
+              title="Clear search query"
             >
               ✕
             </button>
@@ -196,9 +262,8 @@
           id="search"
           type="text"
           bind:value={searchQuery}
-          disabled={userQuery.trim().length > 0}
           placeholder="e.g. Dragon Ball Super, Kozame..."
-          class="w-full bg-[#121212] border border-[#2C2C2E] rounded-xl px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-[#00E5FF] disabled:opacity-40"
+          class="w-full bg-[#121212] border border-[#2C2C2E] rounded-xl px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-[#00E5FF]"
         />
       </div>
 
@@ -230,6 +295,20 @@
             <th class="py-3 px-4 w-14">Cover</th>
             <th class="py-3 px-4">Release Title & Technical Tags</th>
             <th class="py-3 px-4 w-44">AniList Match</th>
+            <th
+              class="py-3 px-4 w-32 cursor-pointer select-none hover:text-white transition-colors"
+              onclick={toggleDateSort}
+              title="Click to sort by date ({sortOrder === 'desc' ? 'Newest first' : 'Oldest first'})"
+            >
+              <div class="flex items-center gap-1.5">
+                <span>Date</span>
+                {#if sortOrder === 'desc'}
+                  <span class="text-[#00E5FF] font-bold text-xs" title="Newest first">↓</span>
+                {:else}
+                  <span class="text-[#00E5FF] font-bold text-xs" title="Oldest first">↑</span>
+                {/if}
+              </div>
+            </th>
             <th class="py-3 px-4 w-24">Size</th>
             <th class="py-3 px-4 w-24">S / L</th>
             <th class="py-3 px-4 w-28 text-right">Actions</th>
@@ -238,14 +317,14 @@
         <tbody class="divide-y divide-[#2C2C2E]">
           {#if loading && releases.length === 0}
             <tr>
-              <td colspan="6" class="py-16 text-center text-[#98989D] font-mono text-xs">
+              <td colspan="7" class="py-16 text-center text-[#98989D] font-mono text-xs">
                 <div class="inline-block w-5 h-5 border-2 border-[#00E5FF] border-t-transparent rounded-full animate-spin mb-2"></div>
                 <div>Scraping Nyaa.si and querying AniList GraphQL API...</div>
               </td>
             </tr>
           {:else if releases.length === 0}
             <tr>
-              <td colspan="6" class="py-12 text-center text-[#98989D] font-mono text-xs">
+              <td colspan="7" class="py-12 text-center text-[#98989D] font-mono text-xs">
                 No releases found matching your search criteria.
               </td>
             </tr>
@@ -289,9 +368,14 @@
                 <td class="py-3 px-4 space-y-1.5">
                   <div class="flex items-center gap-2 flex-wrap">
                     {#if release.parsed.uploader}
-                      <span class="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-[#121212] text-[#00E5FF] border border-[#2C2C2E]">
+                      <button
+                        type="button"
+                        onclick={() => filterByUploader(release.parsed.uploader)}
+                        class="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-[#121212] text-[#00E5FF] hover:bg-[#00E5FF]/20 border border-[#2C2C2E] transition-colors cursor-pointer"
+                        title="Filter by uploader @{release.parsed.uploader}"
+                      >
                         [{release.parsed.uploader}]
-                      </span>
+                      </button>
                     {/if}
                     <span class="text-sm font-semibold text-white group-hover:text-[#00E5FF] transition-colors">
                       {release.parsed.anime_title}
@@ -355,6 +439,11 @@
                   {:else}
                     <span class="text-xs font-mono text-gray-500 italic">No match</span>
                   {/if}
+                </td>
+
+                <!-- Date -->
+                <td class="py-3 px-4 text-xs font-mono text-gray-300 whitespace-nowrap" title={formatFullDate(release.nyaa_created_at)}>
+                  {formatDate(release.nyaa_created_at)}
                 </td>
 
                 <!-- File Size -->

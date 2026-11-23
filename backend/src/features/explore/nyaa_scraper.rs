@@ -30,6 +30,8 @@ pub async fn scrape_nyaa_category(
     category: &str,
     page: u32,
     query: Option<&str>,
+    sort: Option<&str>,
+    order: Option<&str>,
     user_agent: &str,
 ) -> Result<Vec<NyaaRelease>, AppError> {
     let mut url = format!("{}/?c={}&p={}", base_url.trim_end_matches('/'), category, page);
@@ -37,6 +39,12 @@ pub async fn scrape_nyaa_category(
         if !q.trim().is_empty() {
             url.push_str(&format!("&q={}", urlencoding::encode(q.trim())));
         }
+    }
+    if let Some(s) = normalize_sort(sort) {
+        url.push_str(&format!("&s={}", urlencoding::encode(s)));
+    }
+    if let Some(o) = normalize_order(order) {
+        url.push_str(&format!("&o={}", urlencoding::encode(o)));
     }
 
     scrape_url(&url, user_agent).await
@@ -46,14 +54,28 @@ pub async fn scrape_nyaa_user(
     base_url: &str,
     username: &str,
     page: u32,
+    query: Option<&str>,
+    sort: Option<&str>,
+    order: Option<&str>,
     user_agent: &str,
 ) -> Result<Vec<NyaaRelease>, AppError> {
-    let url = format!(
+    let mut url = format!(
         "{}/user/{}?p={}",
         base_url.trim_end_matches('/'),
         urlencoding::encode(username.trim()),
         page
     );
+    if let Some(q) = query {
+        if !q.trim().is_empty() {
+            url.push_str(&format!("&q={}", urlencoding::encode(q.trim())));
+        }
+    }
+    if let Some(s) = normalize_sort(sort) {
+        url.push_str(&format!("&s={}", urlencoding::encode(s)));
+    }
+    if let Some(o) = normalize_order(order) {
+        url.push_str(&format!("&o={}", urlencoding::encode(o)));
+    }
 
     let mut releases = scrape_url(&url, user_agent).await?;
     // Explicitly set uploader to the requested user if not parsed from brackets
@@ -64,6 +86,25 @@ pub async fn scrape_nyaa_user(
     }
 
     Ok(releases)
+}
+
+fn normalize_sort(sort: Option<&str>) -> Option<&'static str> {
+    match sort {
+        Some("date") | Some("id") => Some("id"),
+        Some("size") => Some("size"),
+        Some("seeders") => Some("seeders"),
+        Some("leechers") => Some("leechers"),
+        Some("downloads") => Some("downloads"),
+        _ => None,
+    }
+}
+
+fn normalize_order(order: Option<&str>) -> Option<&'static str> {
+    match order {
+        Some("asc") => Some("asc"),
+        Some("desc") => Some("desc"),
+        _ => None,
+    }
 }
 
 async fn scrape_url(url: &str, user_agent: &str) -> Result<Vec<NyaaRelease>, AppError> {

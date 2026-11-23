@@ -32,12 +32,16 @@ async fn get_latest_releases(
         .unwrap_or(&state.config.nyaa_default_category);
     let page = query.page.unwrap_or(1);
     let search = query.query.as_deref();
+    let sort = query.sort.as_deref();
+    let order = query.order.as_deref();
 
     let mut releases = scrape_nyaa_category(
         &state.config.nyaa_base_url,
         category,
         page,
         search,
+        sort,
+        order,
         &state.config.nyaa_user_agent,
     )
     .await?;
@@ -72,11 +76,17 @@ async fn get_user_releases(
     Query(query): Query<ExploreQuery>,
 ) -> Result<Json<Vec<NyaaRelease>>, AppError> {
     let page = query.page.unwrap_or(1);
+    let search = query.query.as_deref();
+    let sort = query.sort.as_deref();
+    let order = query.order.as_deref();
 
     let mut releases = scrape_nyaa_user(
         &state.config.nyaa_base_url,
         &username,
         page,
+        search,
+        sort,
+        order,
         &state.config.nyaa_user_agent,
     )
     .await?;
