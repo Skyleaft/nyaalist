@@ -4,8 +4,8 @@
 FROM node:26-alpine AS builder
 WORKDIR /app
 
-# Enable pnpm via Corepack
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Install pnpm 9 (matching lockfileVersion 9.0)
+RUN npm install -g pnpm@9
 
 # Install all dependencies (including devDependencies required for Vite/Svelte build)
 COPY package.json pnpm-lock.yaml ./
@@ -23,7 +23,7 @@ RUN pnpm run build
 FROM node:26-alpine AS runner
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN npm install -g pnpm@9
 
 # Install only production dependencies
 COPY package.json pnpm-lock.yaml ./
