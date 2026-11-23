@@ -13,6 +13,7 @@ dist/
 
 # Local media and application data
 /data/
+backend/data/
 /downloads/
 /library/
 /covers/

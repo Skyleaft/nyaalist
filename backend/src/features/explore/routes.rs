@@ -5,11 +5,9 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use std::sync::Arc;
 
 use crate::core::error::AppError;
 use crate::core::state::AppState;
-use crate::features::explore::anilist_client::AniListClient;
 use crate::features::explore::models::{AnimeMetadata, ExploreQuery, NyaaRelease, SyncRequest};
 use crate::features::explore::nyaa_scraper::{scrape_nyaa_category, scrape_nyaa_user};
 
@@ -44,16 +42,25 @@ async fn get_latest_releases(
     )
     .await?;
 
-    let anilist_client = Arc::new(AniListClient::new(
-        state.config.anilist_graphql_url.clone(),
-        state.config.covers_dir.clone(),
-    ));
-
-    // Asynchronously resolve AniList metadata for each parsed release title
+    // Check cached metadata locally (fast response without blocking on remote API);
+    // Uncached titles are queued asynchronously into the rate-limited background worker
     for rel in &mut releases {
         if !rel.parsed.anime_title.is_empty() {
-            if let Ok(meta) = anilist_client.sync_anime_metadata(&state.db, &rel.parsed.anime_title).await {
-                rel.anilist_metadata = meta;
+            if let Ok(Some(cached)) = state
+                .anilist_client
+                .get_cached_metadata(&state.db, &rel.parsed.anime_title)
+                .await
+            {
+                rel.anilist_metadata = Some(cached);
+            } else if let Ok(false) = state
+                .anilist_client
+                .is_title_checked(&state.db, &rel.parsed.anime_title)
+                .await
+            {
+                state
+                    .anilist_client
+                    .enqueue_metadata_sync(&rel.parsed.anime_title)
+                    .await;
             }
         }
     }
@@ -76,15 +83,23 @@ async fn get_user_releases(
     )
     .await?;
 
-    let anilist_client = Arc::new(AniListClient::new(
-        state.config.anilist_graphql_url.clone(),
-        state.config.covers_dir.clone(),
-    ));
-
     for rel in &mut releases {
         if !rel.parsed.anime_title.is_empty() {
-            if let Ok(meta) = anilist_client.sync_anime_metadata(&state.db, &rel.parsed.anime_title).await {
-                rel.anilist_metadata = meta;
+            if let Ok(Some(cached)) = state
+                .anilist_client
+                .get_cached_metadata(&state.db, &rel.parsed.anime_title)
+                .await
+            {
+                rel.anilist_metadata = Some(cached);
+            } else if let Ok(false) = state
+                .anilist_client
+                .is_title_checked(&state.db, &rel.parsed.anime_title)
+                .await
+            {
+                state
+                    .anilist_client
+                    .enqueue_metadata_sync(&rel.parsed.anime_title)
+                    .await;
             }
         }
     }
@@ -96,12 +111,8 @@ async fn sync_title_metadata(
     State(state): State<AppState>,
     Json(payload): Json<SyncRequest>,
 ) -> Result<Json<Option<AnimeMetadata>>, AppError> {
-    let anilist_client = AniListClient::new(
-        state.config.anilist_graphql_url.clone(),
-        state.config.covers_dir.clone(),
-    );
-
-    let meta = anilist_client
+    let meta = state
+        .anilist_client
         .sync_anime_metadata(&state.db, &payload.title)
         .await?;
 
