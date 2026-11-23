@@ -52,10 +52,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 5. Initialize WebSocket Hub
     let ws_hub = WsHub::new(1024);
 
-    // 6. Build AppState
-    let state = AppState::new(config.clone(), db_pool, ws_hub);
+    // 6. Initialize BitTorrent Engine & Telemetry Monitor
+    let torrent_engine = features::downloader::TorrentEngine::new(
+        std::path::PathBuf::from(&config.downloads_dir),
+        db_pool.clone(),
+        ws_hub.clone(),
+    )
+    .await?;
+    torrent_engine.clone().start_monitor();
 
-    // 7. Configure Router & Middleware
+    // 7. Build AppState
+    let state = AppState::new(config.clone(), db_pool, ws_hub, torrent_engine);
+
+    // 8. Configure Router & Middleware
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -63,14 +72,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = Router::new()
         .route("/api/health", get(health_check))
+        .route("/api/ws", get(features::downloader::routes::ws_handler))
         .nest("/api/auth", features::auth::router())
         .nest("/api/explore", features::explore::router())
         .nest("/api/covers", features::explore::covers_router())
+        .nest("/api/downloader", features::downloader::router())
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 
-    // 8. Bind & Serve
+    // 9. Bind & Serve
     let addr: SocketAddr = format!("{}:{}", config.host, config.port).parse()?;
     let listener = tokio::net::TcpListener::bind(addr).await?;
     tracing::info!("Nyaalist API server listening on http://{}", addr);

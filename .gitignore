@@ -12,10 +12,10 @@ dist/
 !.env.example
 
 # Local media and application data
-data/
-downloads/
-library/
-covers/
+/data/
+/downloads/
+/library/
+/covers/
 
 # Logs and databases
 *.log

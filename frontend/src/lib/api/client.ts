@@ -5,7 +5,9 @@ import type {
   NyaaRelease,
   AnimeMetadata,
   SetupRequest,
-  UserResponse
+  UserResponse,
+  DownloadJob,
+  AddTorrentRequest
 } from './types';
 export function getApiBase(): string {
   const customUrl = import.meta.env.PUBLIC_API_URL;
@@ -83,6 +85,26 @@ export const api = {
       request<AnimeMetadata | null>('/explore/sync', {
         method: 'POST',
         body: JSON.stringify({ title, nyaa_id })
+      })
+  },
+  downloader: {
+    getJobs: () => request<DownloadJob[]>('/downloader/jobs'),
+    add: (payload: AddTorrentRequest) =>
+      request<DownloadJob>('/downloader/add', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      }),
+    pause: (id: string) =>
+      request<{ status: string; id: string }>(`/downloader/${id}/pause`, {
+        method: 'POST'
+      }),
+    resume: (id: string) =>
+      request<{ status: string; id: string }>(`/downloader/${id}/resume`, {
+        method: 'POST'
+      }),
+    delete: (id: string, deleteFiles = false) =>
+      request<{ status: string; id: string }>(`/downloader/${id}?delete_files=${deleteFiles}`, {
+        method: 'DELETE'
       })
   }
 };

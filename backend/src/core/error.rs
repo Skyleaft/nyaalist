@@ -25,8 +25,17 @@ pub enum AppError {
     #[error("Not found: {0}")]
     NotFound(String),
 
+    #[error("Torrent engine error: {0}")]
+    Torrent(String),
+
     #[error("Internal server error: {0}")]
     Internal(String),
+}
+
+impl From<anyhow::Error> for AppError {
+    fn from(err: anyhow::Error) -> Self {
+        AppError::Torrent(err.to_string())
+    }
 }
 
 impl IntoResponse for AppError {
@@ -44,6 +53,7 @@ impl IntoResponse for AppError {
             AppError::Unauthorized(err) => (StatusCode::UNAUTHORIZED, err),
             AppError::BadRequest(err) => (StatusCode::BAD_REQUEST, err),
             AppError::NotFound(err) => (StatusCode::NOT_FOUND, err),
+            AppError::Torrent(err) => (StatusCode::BAD_REQUEST, err),
             AppError::Internal(err) => (StatusCode::INTERNAL_SERVER_ERROR, err),
         };
 

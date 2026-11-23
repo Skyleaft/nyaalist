@@ -73,3 +73,49 @@ export interface NyaaRelease {
   parsed: ParsedRelease;
   anilist_metadata?: AnimeMetadata | null;
 }
+
+export interface DownloadJob {
+  id: string;
+  nyaa_torrent_id: number | null;
+  info_hash: string;
+  name: string;
+  magnet_uri: string;
+  save_path: string;
+  status: 'QUEUED' | 'DOWNLOADING' | 'PAUSED' | 'COMPLETED' | 'ERROR';
+  total_bytes: number;
+  downloaded_bytes: number;
+  uploaded_bytes: number;
+  download_speed: number;
+  upload_speed: number;
+  progress_pct: number;
+  eta_seconds: number | null;
+  seeders: number;
+  peers: number;
+  error_message: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TorrentStatsSnapshot {
+  id: string;
+  info_hash: string;
+  name: string;
+  status: string;
+  total_bytes: number;
+  downloaded_bytes: number;
+  uploaded_bytes: number;
+  download_speed: number;
+  upload_speed: number;
+  progress_pct: number;
+  eta_seconds: number | null;
+  seeders: number;
+  peers: number;
+  error_message?: string | null;
+}
+
+export interface AddTorrentRequest {
+  magnet_uri: string;
+  nyaa_id?: number | null;
+}
