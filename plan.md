@@ -5,10 +5,10 @@
 **Nyaalist** is a self-hosted anime torrent explorer, downloader, library organizer, and video transcoding pipeline built for anime enthusiasts. It bridges raw torrent releases from [nyaa.si](https://nyaa.si) with high-fidelity anime metadata from [AniList](https://anilist.co), automates downloads via BitTorrent magnet links with live WebSocket telemetry, organizes downloaded media files into clean library directory structures, and provides an integrated FFmpeg-based transcoding pipeline for video compression.
 
 ### Technology Stack Overview
-- **Backend:** **Rust** (Async Tokio runtime, Axum web framework, `librqbit` BitTorrent engine, `sqlx`, and Tokio async subprocess for FFmpeg).
+- **Backend:** **Rust (latest stable)** (Async Tokio runtime, Axum web framework, `librqbit` BitTorrent engine, `sqlx`, and Tokio async subprocess for FFmpeg).
 - **Architecture:** **Vertical Slice Architecture (VSA)** — feature-driven module partitioning instead of traditional horizontal layered folders.
-- **Database:** **PostgreSQL** (ACID compliance, JSONB configuration storage, full-text search indexing).
-- **Frontend Panel:** **SvelteKit** (latest Svelte 5 with Runes: `$state`, `$derived`, `$effect`, and Tailwind CSS).
+- **Database:** **PostgreSQL 19 (latest)** (ACID compliance, JSONB configuration storage, full-text search indexing).
+- **Frontend Panel:** **SvelteKit 3** ([SvelteKit 3](https://svelte.dev/blog/sveltekit-3-is-here) with Svelte 5 Runes: `$state`, `$derived`, `$effect`, and Tailwind CSS).
 - **Design System:** Adapted from the **WattVision Technical Design System** (`design-md-sistema-de-monitoreo-el-ctrico-wattvision-DESIGN.md`), featuring high-contrast dark surfaces (`#121212`, `#1E1E1E`), Neon Cyan (`#00E5FF`) telemetry accents, Lime Green (`#32D74B`) live indicators, and JetBrains Mono monospace typography.
 - **Deployment:** Multi-container **Docker Compose** orchestration with hardware-accelerated/CPU FFmpeg support.
 
@@ -18,7 +18,7 @@
 
 ```mermaid
 graph TD
-    subgraph Frontend ["SvelteKit 5 Web Panel (WattVision Dark Theme)"]
+    subgraph Frontend ["SvelteKit 3 Web Panel (WattVision Dark Theme)"]
         UI_Dash["Dashboard / KPIs"]
         UI_Explore["Nyaa Explorer & AniList Sync"]
         UI_Downloader["Torrent Monitor (WS)"]
@@ -54,7 +54,7 @@ graph TD
     end
 
     subgraph Storage ["Persistent Storage"]
-        Postgres[(PostgreSQL 16)]
+        Postgres[(PostgreSQL 19)]
         CoversDir[("Local Covers Cache")]
         DownloadsDir[("Downloads Volume")]
         LibraryDir[("Library Volume")]
@@ -141,7 +141,7 @@ The UI design is adapted from `design-md-sistema-de-monitoreo-el-ctrico-wattvisi
 
 ---
 
-## 4. Database Schema (PostgreSQL DDL)
+## 4. Database Schema (PostgreSQL 19 DDL)
 
 The database handles user credentials, application configurations, scraped torrent items, cached AniList anime entries, title resolution mappings, download jobs, library index, and FFmpeg encoding jobs.
 
@@ -827,9 +827,9 @@ Sent every 500ms during an active transcoding session:
 
 ---
 
-## 7. Frontend Architecture (SvelteKit 5 Panel)
+## 7. Frontend Architecture (SvelteKit 3 Panel)
 
-The frontend is built using **SvelteKit** and **Svelte 5** leveraging modern Runes (`$state`, `$derived`, `$effect`) for state management and reactive rendering.
+The frontend is built using **SvelteKit 3** ([SvelteKit 3 Release](https://svelte.dev/blog/sveltekit-3-is-here)) powered by **Svelte 5** and **Vite 6**, leveraging modern Runes (`$state`, `$derived`, `$effect`) for state management and reactive rendering.
 
 ### 7.1 Directory Layout
 
@@ -937,8 +937,8 @@ The application is deployed as a coordinated stack using Docker Compose.
 Uses a multi-stage Rust build with `ffmpeg` installed in the final Debian bookworm-slim runner:
 
 ```dockerfile
-# Stage 1: Build binary
-FROM rust:1.80-bullseye AS builder
+# Stage 1: Build binary using latest stable Rust
+FROM rust:latest AS builder
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
@@ -963,17 +963,17 @@ ENTRYPOINT ["/app/nyaalist-backend"]
 ```
 
 ### 8.2 Frontend Dockerfile (`frontend/Dockerfile`)
-Builds SvelteKit with Node adapter:
+Builds SvelteKit 3 with Node 26 Alpine:
 
 ```dockerfile
-FROM node:20-alpine AS builder
+FROM node:26-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:20-alpine AS runner
+FROM node:26-alpine AS runner
 WORKDIR /app
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/package.json ./package.json
@@ -990,7 +990,7 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:19-alpine
     container_name: nyaalist-db
     restart: unless-stopped
     environment:
@@ -1048,11 +1048,11 @@ volumes:
 
 | Phase | Objective | Deliverables |
 | :--- | :--- | :--- |
-| **Phase 1** | Project Initialization & Database | - Scaffolding `backend/` (Cargo), `.env.example`, and `frontend/` (SvelteKit 5 + Tailwind).<br>- Typed environment configuration loader (`core/config.rs`).<br>- Write PostgreSQL DDL migrations (`001_init.sql`).<br>- Implement Axum server with `AppState`, `PgPool`, and `AppError`. |
+| **Phase 1** | Project Initialization & Database | - Scaffolding `backend/` (latest stable Rust / Cargo), `.env.example`, and `frontend/` (SvelteKit 3 + Tailwind).<br>- Typed environment configuration loader (`core/config.rs`).<br>- Write PostgreSQL 19 DDL migrations (`001_init.sql`).<br>- Implement Axum server with `AppState`, `PgPool`, and `AppError`. |
 | **Phase 2** | Auth & Setup Slice (`features/auth`) | - First-run admin detection logic (`/api/auth/status`).<br>- Setup wizard endpoint (`/api/auth/setup`) with Argon2id password hashing.<br>- JWT issue/verification middleware. |
 | **Phase 3** | Explore & Sync Slice (`features/explore`) | - Nyaa HTML & RSS scrapers (`nyaa_scraper.rs`).<br>- Anitomy-style token extraction (`title_parser.rs`).<br>- AniList GraphQL client with rate limiter & cover image cacher.<br>- Endpoints: `GET /api/explore/latest`, `GET /api/explore/user/:username`. |
 | **Phase 4** | Downloader Slice (`features/downloader`) | - Integrate `librqbit` BitTorrent engine.<br>- Magnet link resolver & file download tasks.<br>- WebSocket broadcast bus streaming live speeds, progress, seeds, and ETA. |
 | **Phase 5** | Library Management (`features/library`) | - Disk file scanner.<br>- File move / copy engine with pattern renaming templates (`{title} - S{season}E{episode}`). |
 | **Phase 6** | Video Transcoder (`features/encoder`) | - Tokio Command subprocess runner invoking `ffmpeg` with `-progress pipe:1`.<br>- Transcoding presets (`720p x265 Balanced`, `1080p x265 HQ`).<br>- Real-time WebSocket streaming of frame, fps, speed, and percentage. |
 | **Phase 7** | Frontend UI Implementation | - Implement WattVision dark theme components (`Card`, `KpiCard`, `ProgressBar`, `DataTable`, `Badge`).<br>- Svelte 5 Rune-based reactive stores (`torrents.svelte.ts`, `encoder.svelte.ts`).<br>- Pages: `/login`, `/setup`, `/`, `/explore`, `/downloads`, `/library`, `/encoder`, `/settings`. |
-| **Phase 8** | Docker Deployment & E2E Verification | - Multi-stage `Dockerfile.backend` with FFmpeg.<br>- Multi-stage `Dockerfile.frontend`.<br>- `docker-compose.yml` validation with volumes for downloads, library, and PostgreSQL data. |
+| **Phase 8** | Docker Deployment & E2E Verification | - Multi-stage `Dockerfile.backend` with latest Rust + FFmpeg.<br>- Multi-stage `Dockerfile.frontend` (Node 26 Alpine + SvelteKit 3).<br>- `docker-compose.yml` validation with PostgreSQL 19 and volumes for downloads, library, and PostgreSQL data. |

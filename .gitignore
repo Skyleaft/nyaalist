@@ -1,0 +1,29 @@
+# Build artifacts
+target/
+node_modules/
+.svelte-kit/
+build/
+dist/
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Local media and application data
+data/
+downloads/
+library/
+covers/
+
+# Logs and databases
+*.log
+*.sqlite
+*.db
+
+# Operating System & IDEs
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
