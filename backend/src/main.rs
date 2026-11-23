@@ -64,6 +64,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Router::new()
         .route("/api/health", get(health_check))
         .nest("/api/auth", features::auth::router())
+        .nest("/api/explore", features::explore::router())
+        .nest("/api/covers", features::explore::covers_router())
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(state);
