@@ -12,6 +12,7 @@ class LibraryStore {
   totalCount = $derived(this.items.length);
   movedCount = $derived(this.items.filter(i => i.is_moved).length);
   pendingCount = $derived(this.items.filter(i => !i.is_moved).length);
+  encodedCount = $derived(this.items.filter(i => i.is_encoded).length);
   totalSizeBytes = $derived(
     this.items.reduce((acc, i) => acc + (i.file_size_bytes || 0), 0)
   );
@@ -86,6 +87,20 @@ class LibraryStore {
       this.items = this.items.filter(i => i.id !== id);
     } catch (err: any) {
       this.error = err.message || 'Failed to remove file tracking';
+      throw err;
+    }
+  }
+
+  async encodeFile(fileId: string, presetId?: string, targetFilePath?: string) {
+    this.error = null;
+    try {
+      const job = await api.library.encodeFile(fileId, {
+        preset_id: presetId,
+        target_file_path: targetFilePath
+      });
+      return job;
+    } catch (err: any) {
+      this.error = err.message || 'Failed to queue encode job';
       throw err;
     }
   }

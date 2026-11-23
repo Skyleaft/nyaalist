@@ -11,8 +11,10 @@ use uuid::Uuid;
 
 use crate::core::error::AppError;
 use crate::core::state::AppState;
+use crate::features::encoder::models::{EncodingJob, QueueJobRequest};
+use crate::features::encoder::routes::queue_job_internal;
 use crate::features::library::models::{
-    AutoOrganizeRequest, LibraryFile, LibraryFileItem, LibraryFilesQuery, MoveFileRequest,
+    AutoOrganizeRequest, EncodeFileRequest, LibraryFile, LibraryFileItem, LibraryFilesQuery, MoveFileRequest,
     ScanDirectoryResult,
 };
 use crate::features::library::organizer::{
@@ -26,6 +28,7 @@ pub fn router() -> Router<AppState> {
         .route("/move", post(manual_move_file))
         .route("/auto-organize", post(auto_organize_endpoint))
         .route("/files/:id", delete(delete_library_file))
+        .route("/files/:id/encode", post(encode_library_file))
 }
 
 async fn get_library_files(
@@ -218,4 +221,35 @@ async fn delete_library_file(
         "message": "Library file removed from tracking",
         "id": id
     })))
+}
+
+async fn encode_library_file(
+    State(state): State<AppState>,
+    AxumPath(id): AxumPath<Uuid>,
+    Json(payload): Json<EncodeFileRequest>,
+) -> Result<Json<EncodingJob>, AppError> {
+    let file = sqlx::query_as::<_, LibraryFile>(
+        r#"
+        SELECT
+            id, download_job_id, anilist_id, original_filename, current_path,
+            target_library_path, episode, season, resolution, file_size_bytes,
+            is_moved, is_encoded, created_at, updated_at
+        FROM library_files
+        WHERE id = $1
+        "#
+    )
+    .bind(id)
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or_else(|| AppError::NotFound(format!("Library file not found with ID {id}")))?;
+
+    let queue_payload = QueueJobRequest {
+        source_file_path: file.current_path,
+        preset_id: payload.preset_id,
+        target_file_path: payload.target_file_path,
+    };
+
+    let job = queue_job_internal(&state, queue_payload).await?;
+    info!("Queued encode job {} for library file {}", job.id, file.id);
+    Ok(Json(job))
 }

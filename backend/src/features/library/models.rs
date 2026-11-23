@@ -43,6 +43,12 @@ pub struct AutoOrganizeRequest {
     pub template: Option<String>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct EncodeFileRequest {
+    pub preset_id: Option<Uuid>,
+    pub target_file_path: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScanDirectoryResult {
     pub scanned_count: usize,

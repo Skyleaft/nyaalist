@@ -185,10 +185,10 @@ async fn list_jobs(
     Ok(Json(items))
 }
 
-async fn queue_job(
-    State(state): State<AppState>,
-    Json(payload): Json<QueueJobRequest>,
-) -> Result<Json<EncodingJob>, AppError> {
+pub async fn queue_job_internal(
+    state: &AppState,
+    payload: QueueJobRequest,
+) -> Result<EncodingJob, AppError> {
     if !Path::new(&payload.source_file_path).exists() {
         return Err(AppError::NotFound(format!(
             "Source file does not exist: {}",
@@ -258,6 +258,14 @@ async fn queue_job(
     .fetch_one(&state.db)
     .await?;
 
+    Ok(job)
+}
+
+async fn queue_job(
+    State(state): State<AppState>,
+    Json(payload): Json<QueueJobRequest>,
+) -> Result<Json<EncodingJob>, AppError> {
+    let job = queue_job_internal(&state, payload).await?;
     Ok(Json(job))
 }
 
