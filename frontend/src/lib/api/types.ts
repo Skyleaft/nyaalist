@@ -160,3 +160,82 @@ export interface ScanDirectoryResult {
   new_files_count: number;
   files: LibraryFile[];
 }
+
+export interface EncodingPreset {
+  id: string;
+  name: string;
+  description?: string | null;
+  video_codec: string;
+  preset: string;
+  crf: number;
+  target_resolution?: string | null;
+  audio_codec: string;
+  audio_bitrate?: string | null;
+  container: string;
+  custom_ffmpeg_args?: string | null;
+  is_default: boolean;
+  created_at: string;
+}
+
+export interface EncodingJob {
+  id: string;
+  source_file_path: string;
+  target_file_path: string;
+  preset_id: string;
+  status: 'QUEUED' | 'ENCODING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  progress_pct: number;
+  current_frame: number;
+  total_frames?: number | null;
+  fps: number;
+  current_time_sec: number;
+  total_duration_sec: number;
+  speed: number;
+  source_size_bytes: number;
+  encoded_size_bytes: number;
+  eta_seconds?: number | null;
+  error_message?: string | null;
+  created_at: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+}
+
+export interface EncodingJobItem extends EncodingJob {
+  preset_name: string;
+  source_filename: string;
+}
+
+export interface EncodeProgressTelemetry {
+  job_id: string;
+  file_name: string;
+  preset_name: string;
+  status: string;
+  progress_pct: number;
+  current_frame: number;
+  fps: number;
+  speed: number;
+  current_time_sec: number;
+  total_duration_sec: number;
+  eta_seconds?: number | null;
+  source_size_bytes: number;
+  current_size_bytes: number;
+}
+
+export interface CreatePresetRequest {
+  name: string;
+  description?: string;
+  video_codec?: string;
+  preset?: string;
+  crf?: number;
+  target_resolution?: string;
+  audio_codec?: string;
+  audio_bitrate?: string;
+  container?: string;
+  custom_ffmpeg_args?: string;
+  is_default?: boolean;
+}
+
+export interface QueueJobRequest {
+  source_file_path: string;
+  preset_id?: string;
+  target_file_path?: string;
+}

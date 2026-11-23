@@ -55,6 +55,12 @@
           >
             <span>Library</span>
           </a>
+          <a
+            href="/encoder"
+            class="px-3 py-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-[#252525] transition-colors flex items-center gap-1.5"
+          >
+            <span>Encoder</span>
+          </a>
         </nav>
       </div>
 

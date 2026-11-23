@@ -11,7 +11,12 @@ import type {
   LibraryFileItem,
   MoveFileRequest,
   AutoOrganizeRequest,
-  ScanDirectoryResult
+  ScanDirectoryResult,
+  EncodingPreset,
+  EncodingJob,
+  EncodingJobItem,
+  CreatePresetRequest,
+  QueueJobRequest
 } from './types';
 export function getApiBase(): string {
   const customUrl = import.meta.env.PUBLIC_API_URL;
@@ -134,6 +139,32 @@ export const api = {
       }),
     delete: (id: string) =>
       request<{ status: string; id: string }>(`/library/files/${id}`, {
+        method: 'DELETE'
+      })
+  },
+  encoder: {
+    getPresets: () => request<EncodingPreset[]>('/encoder/presets'),
+    createPreset: (payload: CreatePresetRequest) =>
+      request<EncodingPreset>('/encoder/presets', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      }),
+    getJobs: (status?: string) => {
+      const sp = new URLSearchParams();
+      if (status && status !== 'ALL') sp.set('status', status);
+      return request<EncodingJobItem[]>(`/encoder/jobs?${sp.toString()}`);
+    },
+    queueJob: (payload: QueueJobRequest) =>
+      request<EncodingJob>('/encoder/jobs', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      }),
+    cancelJob: (id: string) =>
+      request<{ status: string; message: string }>(`/encoder/jobs/${id}/cancel`, {
+        method: 'POST'
+      }),
+    deleteJob: (id: string) =>
+      request<{ status: string; message: string }>(`/encoder/jobs/${id}`, {
         method: 'DELETE'
       })
   }
