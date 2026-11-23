@@ -151,6 +151,11 @@ export const api = {
     delete: (id: string) =>
       request<{ status: string; id: string }>(`/library/files/${id}`, {
         method: 'DELETE'
+      }),
+    encodeFile: (id: string, payload?: { preset_id?: string; target_file_path?: string }) =>
+      request<EncodingJob>(`/library/files/${id}/encode`, {
+        method: 'POST',
+        body: JSON.stringify(payload || {})
       })
   },
   encoder: {

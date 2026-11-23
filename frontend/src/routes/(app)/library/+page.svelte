@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { library } from '#lib/stores/library.svelte';
-  import type { LibraryFileItem } from '#lib/api/types';
+  import { api } from '#lib/api/client';
+  import type { LibraryFileItem, EncodingPreset } from '#lib/api/types';
 
   let filterStatus = $state<'ALL' | 'PENDING' | 'ORGANIZED'>('ALL');
   let searchQuery = $state('');
@@ -14,12 +15,41 @@
   let moveError = $state<string | null>(null);
   let isMoving = $state(false);
 
+  // Encode modal state
+  let isEncodeModalOpen = $state(false);
+  let encodeTargetFile = $state<LibraryFileItem | null>(null);
+  let presets = $state<EncodingPreset[]>([]);
+  let selectedPresetId = $state<string>('');
+  let customTargetFilePath = $state('');
+  let isEncoding = $state(false);
+  let encodeError = $state<string | null>(null);
+  let encodeSuccess = $state<string | null>(null);
+
+  const selectedPreset = $derived(
+    presets.find(p => p.id === selectedPresetId)
+  );
+
   // Template editor modal
   let customTemplate = $state('{anime_title}/Season {season}/{anime_title} - S{season:02d}E{episode:02d} [{resolution}].{ext}');
 
   onMount(() => {
     library.init();
+    loadPresets();
   });
+
+  async function loadPresets() {
+    try {
+      presets = await api.encoder.getPresets();
+      if (!selectedPresetId) {
+        const defaultPreset = presets.find(p => p.is_default) || presets[0];
+        if (defaultPreset) {
+          selectedPresetId = defaultPreset.id;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load presets for library:', e);
+    }
+  }
 
   const filteredItems = $derived(
     library.items.filter(item => {
@@ -121,6 +151,57 @@
       alert(`Delete failed: ${err.message}`);
     }
   }
+
+  function openEncodeModal(item: LibraryFileItem) {
+    encodeTargetFile = item;
+    encodeError = null;
+    encodeSuccess = null;
+
+    // Derive suggested output path: in same directory with _encoded.mkv
+    const source = item.current_path;
+    const lastDot = source.lastIndexOf('.');
+    if (lastDot > 0) {
+      customTargetFilePath = `${source.substring(0, lastDot)}_encoded.mkv`;
+    } else {
+      customTargetFilePath = `${source}_encoded.mkv`;
+    }
+
+    if (!selectedPresetId && presets.length > 0) {
+      const defaultPreset = presets.find(p => p.is_default) || presets[0];
+      if (defaultPreset) {
+        selectedPresetId = defaultPreset.id;
+      }
+    }
+
+    isEncodeModalOpen = true;
+  }
+
+  async function handleQueueEncode(e: Event) {
+    e.preventDefault();
+    if (!encodeTargetFile) return;
+
+    isEncoding = true;
+    encodeError = null;
+    encodeSuccess = null;
+
+    try {
+      await library.encodeFile(
+        encodeTargetFile.id,
+        selectedPresetId || undefined,
+        customTargetFilePath.trim() || undefined
+      );
+      encodeSuccess = `Encoding job queued for "${encodeTargetFile.original_filename}"!`;
+      setTimeout(() => {
+        isEncodeModalOpen = false;
+        encodeTargetFile = null;
+        encodeSuccess = null;
+      }, 1500);
+    } catch (err: any) {
+      encodeError = err.message || 'Failed to queue encode job';
+    } finally {
+      isEncoding = false;
+    }
+  }
 </script>
 
 <svelte:head>
@@ -170,7 +251,7 @@
   </div>
 
   <!-- Telemetry KPI Banners -->
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+  <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
     <!-- Total Files -->
     <div class="p-4 rounded-xl bg-[#1E1E1E] border border-[#2C2C2E]">
       <span class="text-xs font-medium text-gray-400">TOTAL FILES</span>
@@ -182,7 +263,7 @@
     <!-- Organized -->
     <div class="p-4 rounded-xl bg-[#1E1E1E] border border-[#2C2C2E]">
       <div class="flex justify-between items-start">
-        <span class="text-xs font-medium text-gray-400">ORGANIZED & MOVED</span>
+        <span class="text-xs font-medium text-gray-400">ORGANIZED</span>
         <span class="text-xs font-mono text-[#32D74B]">✓ READY</span>
       </div>
       <div class="mt-2 text-2xl font-bold font-mono text-[#32D74B]">
@@ -194,17 +275,28 @@
     <div class="p-4 rounded-xl bg-[#1E1E1E] border border-[#2C2C2E]">
       <div class="flex justify-between items-start">
         <span class="text-xs font-medium text-gray-400">PENDING MOVE</span>
-        <span class="text-xs font-mono text-amber-400">IN DOWNLOADS</span>
+        <span class="text-xs font-mono text-amber-400">DOWNLOADS</span>
       </div>
       <div class="mt-2 text-2xl font-bold font-mono text-amber-400">
         {library.pendingCount}
       </div>
     </div>
 
+    <!-- Encoded -->
+    <div class="p-4 rounded-xl bg-[#1E1E1E] border border-[#2C2C2E]">
+      <div class="flex justify-between items-start">
+        <span class="text-xs font-medium text-gray-400">ENCODED</span>
+        <span class="text-xs font-mono text-[#00E5FF]">FFMPEG</span>
+      </div>
+      <div class="mt-2 text-2xl font-bold font-mono text-[#00E5FF]">
+        {library.encodedCount}
+      </div>
+    </div>
+
     <!-- Storage Used -->
     <div class="p-4 rounded-xl bg-[#1E1E1E] border border-[#2C2C2E]">
       <span class="text-xs font-medium text-gray-400">TRACKED STORAGE</span>
-      <div class="mt-2 text-2xl font-bold font-mono text-[#00E5FF]">
+      <div class="mt-2 text-2xl font-bold font-mono text-gray-200">
         {formatBytes(library.totalSizeBytes)}
       </div>
     </div>
@@ -357,15 +449,30 @@
 
                 <!-- Status -->
                 <td class="py-3.5 px-4 whitespace-nowrap">
-                  {#if item.is_moved}
-                    <span class="px-2.5 py-1 rounded text-[10px] font-mono font-bold bg-[#32D74B]/20 text-[#32D74B] border border-[#32D74B]/40 shadow-[0_0_8px_rgba(50,215,75,0.2)]">
-                      ✓ ORGANIZED
-                    </span>
-                  {:else}
-                    <span class="px-2.5 py-1 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">
-                      PENDING MOVE
-                    </span>
-                  {/if}
+                  <div class="space-y-1">
+                    <div>
+                      {#if item.is_moved}
+                        <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#32D74B]/20 text-[#32D74B] border border-[#32D74B]/40 shadow-[0_0_8px_rgba(50,215,75,0.2)]">
+                          ✓ ORGANIZED
+                        </span>
+                      {:else}
+                        <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                          PENDING MOVE
+                        </span>
+                      {/if}
+                    </div>
+                    <div>
+                      {#if item.is_encoded}
+                        <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#00E5FF]/20 text-[#00E5FF] border border-[#00E5FF]/40">
+                          ✓ ENCODED
+                        </span>
+                      {:else}
+                        <span class="px-2 py-0.5 rounded text-[10px] font-mono text-gray-400 bg-white/5 border border-[#2C2C2E]">
+                          RAW SOURCE
+                        </span>
+                      {/if}
+                    </div>
+                  </div>
                 </td>
 
                 <!-- Actions -->
@@ -380,6 +487,15 @@
                         ⚡ Auto Move
                       </button>
                     {/if}
+
+                    <button
+                      onclick={() => openEncodeModal(item)}
+                      class="px-2.5 py-1 rounded-lg bg-[#00E5FF]/20 hover:bg-[#00E5FF]/30 text-[#00E5FF] border border-[#00E5FF]/40 text-xs transition-colors cursor-pointer flex items-center gap-1"
+                      title="Encode / transcode file with FFmpeg"
+                    >
+                      <span>⚡</span>
+                      <span>Encode...</span>
+                    </button>
 
                     <button
                       onclick={() => openMoveModal(item)}
@@ -486,6 +602,129 @@
               Moving...
             {:else}
               Execute Move
+            {/if}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+{/if}
+
+<!-- Encode File Modal -->
+{#if isEncodeModalOpen && encodeTargetFile}
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div class="bg-[#1E1E1E] border border-[#2C2C2E] rounded-2xl p-6 max-w-xl w-full shadow-2xl relative space-y-4">
+      <div class="flex justify-between items-center">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <svg class="w-5 h-5 text-[#00E5FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+          Encode Media File
+        </h3>
+        <button
+          onclick={() => (isEncodeModalOpen = false)}
+          class="text-gray-400 hover:text-white cursor-pointer"
+        >
+          ✕
+        </button>
+      </div>
+
+      {#if encodeSuccess}
+        <div class="p-3 bg-[#32D74B]/20 border border-[#32D74B]/40 rounded-xl text-xs font-mono text-[#32D74B] flex items-center justify-between">
+          <span>✓ {encodeSuccess}</span>
+          <a
+            href="/encoder"
+            class="underline font-bold hover:text-white ml-2"
+          >
+            View in Transcoder →
+          </a>
+        </div>
+      {/if}
+
+      {#if encodeError}
+        <div class="p-3 bg-[#FF453A]/20 border border-[#FF453A]/40 rounded-xl text-xs font-mono text-[#FF453A]">
+          {encodeError}
+        </div>
+      {/if}
+
+      <form onsubmit={handleQueueEncode} class="space-y-4 text-xs font-mono">
+        <div>
+          <label for="encode-source-path" class="block text-gray-400 mb-1">SOURCE FILE</label>
+          <input
+            id="encode-source-path"
+            type="text"
+            readonly
+            value={encodeTargetFile.current_path}
+            class="w-full bg-[#121212] border border-[#2C2C2E] rounded-lg px-3 py-2 text-gray-400 select-all"
+          />
+          <div class="flex items-center gap-2 mt-1.5 text-[11px] text-gray-500">
+            <span>Size: <strong class="text-white">{formatBytes(encodeTargetFile.file_size_bytes)}</strong></span>
+            <span>•</span>
+            <span>Resolution: <strong class="text-white">{encodeTargetFile.resolution || 'Original'}</strong></span>
+          </div>
+        </div>
+
+        <div>
+          <label for="encode-preset" class="block text-gray-400 mb-1">ENCODING PRESET</label>
+          <select
+            id="encode-preset"
+            bind:value={selectedPresetId}
+            class="w-full bg-[#121212] border border-[#2C2C2E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#00E5FF]"
+          >
+            {#each presets as preset (preset.id)}
+              <option value={preset.id}>
+                {preset.name} {preset.is_default ? '(Default)' : ''}
+              </option>
+            {/each}
+          </select>
+        </div>
+
+        {#if selectedPreset}
+          <div class="p-3 rounded-xl bg-[#121212] border border-[#2C2C2E] space-y-2 text-[11px]">
+            <div class="text-gray-400 font-semibold">{selectedPreset.description || selectedPreset.name}</div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-gray-300">
+              <div><span class="text-gray-500">Video:</span> {selectedPreset.video_codec}</div>
+              <div><span class="text-gray-500">CRF:</span> {selectedPreset.crf}</div>
+              <div><span class="text-gray-500">Speed:</span> {selectedPreset.preset}</div>
+              <div><span class="text-gray-500">Scale:</span> {selectedPreset.target_resolution || 'Original'}</div>
+              <div><span class="text-gray-500">Audio:</span> {selectedPreset.audio_codec}</div>
+              <div><span class="text-gray-500">Format:</span> {selectedPreset.container}</div>
+            </div>
+          </div>
+        {/if}
+
+        <div>
+          <label for="encode-target-path" class="block text-gray-400 mb-1">DESTINATION PATH (OPTIONAL)</label>
+          <input
+            id="encode-target-path"
+            type="text"
+            bind:value={customTargetFilePath}
+            placeholder="Leave default or specify custom output path..."
+            class="w-full bg-[#121212] border border-[#2C2C2E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#00E5FF]"
+          />
+          <p class="text-[10px] text-gray-500 mt-1">
+            Default output will be stored in your configured transcoding directory.
+          </p>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-2">
+          <button
+            type="button"
+            onclick={() => (isEncodeModalOpen = false)}
+            class="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isEncoding || !selectedPresetId}
+            class="px-4 py-2 bg-[#00E5FF] hover:bg-[#00c8e0] text-[#121212] font-bold rounded-lg transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2"
+          >
+            {#if isEncoding}
+              <span class="inline-block animate-spin w-3 h-3 border-2 border-black border-t-transparent rounded-full"></span>
+              Queueing...
+            {:else}
+              ⚡ Queue Encode Job
             {/if}
           </button>
         </div>
