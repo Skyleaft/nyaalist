@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-primary: #121212;
+    --surface-card: #1E1E1E;
+    --surface-hover: #252525;
+    --border-subtle: #2C2C2E;
+    --accent-primary: #00E5FF;
+    --accent-secondary: #32D74B;
+    --accent-alert: #FF453A;
+    --text-primary: #FFFFFF;
+    --text-secondary: #98989D;
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'Fira Code', monospace;
+  }
+}
