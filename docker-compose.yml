@@ -47,10 +47,10 @@ services:
       - TEMP_ENCODE_DIR=/data/temp_encode
       - RUST_LOG=info,nyaalist=debug,tower_http=info
     volumes:
-      - ./data/downloads:/data/downloads
-      - ./data/library:/data/library
-      - ./data/covers:/data/covers
-      - ./data/temp_encode:/data/temp_encode
+      - ./backend/data/downloads:/data/downloads
+      - ./backend/data/library:/data/library
+      - ./backend/data/covers:/data/covers
+      - ./backend/data/temp_encode:/data/temp_encode
     ports:
       - "5041:5041"
 
@@ -63,14 +63,14 @@ services:
     depends_on:
       - backend
     environment:
-      - ORIGIN=http://localhost:3000
-      - PORT=3000
+      - ORIGIN=http://localhost:3040
+      - PORT=3040
       - HOST=0.0.0.0
       - NODE_ENV=production
       - PUBLIC_API_URL=http://localhost:5041
       - PUBLIC_WS_URL=ws://localhost:5041/api/ws
     ports:
-      - "3000:3000"
+      - "3040:3040"
 
 volumes:
   nyaalist-pgdata:

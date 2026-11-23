@@ -1,7 +1,7 @@
 # ==============================================================================
 # Stage 1: Build binary using latest stable Rust
 # ==============================================================================
-FROM rust:latest AS builder
+FROM rust:bookworm AS builder
 WORKDIR /app
 
 # Copy dependency manifests and source files

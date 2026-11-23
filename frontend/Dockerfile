@@ -32,10 +32,10 @@ RUN pnpm install --prod --frozen-lockfile
 # Copy built application output from builder stage
 COPY --from=builder /app/build ./build
 
-ENV PORT=3000
+ENV PORT=3040
 ENV HOST=0.0.0.0
 ENV NODE_ENV=production
 
-EXPOSE 3000
+EXPOSE 3040
 
 CMD ["node", "build"]
