@@ -82,6 +82,8 @@ pub struct ExploreQuery {
     pub category: Option<String>,
     pub page: Option<u32>,
     pub query: Option<String>,
+    pub sort: Option<String>,
+    pub order: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -81,16 +81,24 @@ export const api = {
     getMe: () => request<UserResponse>('/auth/me')
   },
   explore: {
-    getLatest: (params?: { category?: string; page?: number; query?: string }) => {
+    getLatest: (params?: { category?: string; page?: number; query?: string; sort?: string; order?: string }) => {
       const sp = new URLSearchParams();
       if (params?.category) sp.set('category', params.category);
       if (params?.page) sp.set('page', params.page.toString());
       if (params?.query) sp.set('query', params.query);
+      if (params?.sort) sp.set('sort', params.sort);
+      if (params?.order) sp.set('order', params.order);
       return request<NyaaRelease[]>(`/explore/latest?${sp.toString()}`);
     },
-    getUserReleases: (username: string, page?: number) => {
+    getUserReleases: (
+      username: string,
+      params?: { page?: number; query?: string; sort?: string; order?: string }
+    ) => {
       const sp = new URLSearchParams();
-      if (page) sp.set('page', page.toString());
+      if (params?.page) sp.set('page', params.page.toString());
+      if (params?.query) sp.set('query', params.query);
+      if (params?.sort) sp.set('sort', params.sort);
+      if (params?.order) sp.set('order', params.order);
       return request<NyaaRelease[]>(`/explore/user/${encodeURIComponent(username)}?${sp.toString()}`);
     },
     syncMetadata: (title: string, nyaa_id?: number) =>
