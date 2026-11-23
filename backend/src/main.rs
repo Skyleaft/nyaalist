@@ -83,9 +83,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     torrent_engine.clone().start_monitor();
 
     // 7. Initialize FFmpeg Video Transcoder Queue Worker
+    let resolved_ffmpeg = features::encoder::ffmpeg_runner::resolve_binary_path(&config.ffmpeg_binary_path);
+    let resolved_ffprobe = features::encoder::ffmpeg_runner::resolve_binary_path(&config.ffprobe_binary_path);
+
+    match features::encoder::ffmpeg_runner::check_ffmpeg_available(&resolved_ffmpeg).await {
+        Ok(ver) => {
+            tracing::info!("FFmpeg binary validated: {} ({})", resolved_ffmpeg, ver);
+        }
+        Err(err) => {
+            tracing::warn!(
+                "FFmpeg binary check warning: {}. Video transcoding will be disabled until FFmpeg is installed (e.g. 'winget install Gyan.FFmpeg') or configured in backend/.env.",
+                err
+            );
+        }
+    }
+
+    match features::encoder::ffmpeg_runner::check_ffprobe_available(&resolved_ffprobe).await {
+        Ok(ver) => {
+            tracing::info!("FFprobe binary validated: {} ({})", resolved_ffprobe, ver);
+        }
+        Err(err) => {
+            tracing::warn!(
+                "FFprobe binary check warning: {}. Media duration probing will default to 0.0 until FFprobe is installed or configured.",
+                err
+            );
+        }
+    }
+
     let encoder_worker = features::encoder::EncodingQueueWorker::new(
-        config.ffmpeg_binary_path.clone(),
-        config.ffprobe_binary_path.clone(),
+        resolved_ffmpeg,
+        resolved_ffprobe,
         db_pool.clone(),
         ws_hub.clone(),
     );

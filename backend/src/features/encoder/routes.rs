@@ -189,6 +189,14 @@ pub async fn queue_job_internal(
     state: &AppState,
     payload: QueueJobRequest,
 ) -> Result<EncodingJob, AppError> {
+    // 0. Pre-flight check: verify FFmpeg binary is available on the host system
+    let resolved_ffmpeg = crate::features::encoder::ffmpeg_runner::resolve_binary_path(&state.config.ffmpeg_binary_path);
+    if let Err(err) = crate::features::encoder::ffmpeg_runner::check_ffmpeg_available(&resolved_ffmpeg).await {
+        return Err(AppError::BadRequest(format!(
+            "FFmpeg executable was not found on the host system (path: '{resolved_ffmpeg}'). Error: {err}. Please install FFmpeg (e.g. run 'winget install Gyan.FFmpeg' on Windows or 'apt install ffmpeg' on Linux) or configure FFMPEG_BINARY_PATH in backend/.env"
+        )));
+    }
+
     if !Path::new(&payload.source_file_path).exists() {
         return Err(AppError::NotFound(format!(
             "Source file does not exist: {}",
