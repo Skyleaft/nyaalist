@@ -61,10 +61,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .await?;
     torrent_engine.clone().start_monitor();
 
-    // 7. Build AppState
+    // 7. Initialize FFmpeg Video Transcoder Queue Worker
+    let encoder_worker = features::encoder::EncodingQueueWorker::new(
+        config.ffmpeg_binary_path.clone(),
+        config.ffprobe_binary_path.clone(),
+        db_pool.clone(),
+        ws_hub.clone(),
+    );
+    encoder_worker.start();
+
+    // 8. Build AppState
     let state = AppState::new(config.clone(), db_pool, ws_hub, torrent_engine);
 
-    // 8. Configure Router & Middleware
+    // 9. Configure Router & Middleware
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -78,11 +87,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .nest("/api/covers", features::explore::covers_router())
         .nest("/api/downloader", features::downloader::router())
         .nest("/api/library", features::library::router())
+        .nest("/api/encoder", features::encoder::router())
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 
-    // 9. Bind & Serve
+    // 10. Bind & Serve
     let addr: SocketAddr = format!("{}:{}", config.host, config.port).parse()?;
     let listener = tokio::net::TcpListener::bind(addr).await?;
     tracing::info!("Nyaalist API server listening on http://{}", addr);
