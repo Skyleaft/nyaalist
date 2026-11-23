@@ -7,11 +7,13 @@ use axum::{
 };
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use axum_extra::extract::CookieJar;
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set};
 use serde_json::json;
 use uuid::Uuid;
 
 use crate::core::error::AppError;
 use crate::core::state::AppState;
+use crate::entities::users;
 use crate::features::auth::middleware::AuthUser;
 use crate::features::auth::models::{
     AuthStatusResponse, AuthSuccessResponse, LoginRequest, SetupRequest, User, UserResponse,
@@ -40,24 +42,39 @@ async fn setup_admin(
         return Err(AppError::BadRequest("Password must be at least 8 characters long".into()));
     }
 
-    // 1. Ensure setup is only permitted if no users exist
-    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users")
-        .fetch_one(&state.db)
-        .await?;
+    // 1. Ensure setup is only permitted if no users exist (using SeaORM)
+    let user_count = users::Entity::find()
+        .count(&state.sea_db)
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to count users via SeaORM: {e}")))?;
 
-    if count.0 > 0 {
+    if user_count > 0 {
         return Err(AppError::BadRequest("Initial setup has already been completed".into()));
     }
 
-    // 2. Hash password and insert first admin user
+    // 2. Hash password and insert first admin user via SeaORM ActiveModel
     let password_hash = hash_password(&payload.password)?;
-    let user = sqlx::query_as::<_, User>(
-        "INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'admin') RETURNING *"
-    )
-    .bind(username)
-    .bind(&password_hash)
-    .fetch_one(&state.db)
-    .await?;
+    let new_user = users::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        username: Set(username.to_string()),
+        password_hash: Set(password_hash.clone()),
+        role: Set("admin".to_string()),
+        created_at: Set(chrono::Utc::now()),
+        updated_at: Set(chrono::Utc::now()),
+    };
+    let user_model = new_user
+        .insert(&state.sea_db)
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to insert admin user via SeaORM: {e}")))?;
+
+    let user = User {
+        id: user_model.id,
+        username: user_model.username,
+        password_hash: user_model.password_hash,
+        role: user_model.role,
+        created_at: user_model.created_at,
+        updated_at: user_model.updated_at,
+    };
 
     // 3. Issue JWT Token
     let token = create_jwt_token(&user, &state.config.jwt_secret, state.config.jwt_expiration_hours)?;
@@ -87,18 +104,28 @@ async fn login(
 ) -> Result<impl IntoResponse, AppError> {
     let username = payload.username.trim();
 
-    // 1. Look up user by username
-    let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE username = $1")
-        .bind(username)
-        .fetch_optional(&state.db)
-        .await?
+    // 1. Look up user by username via SeaORM
+    let user_model = users::Entity::find()
+        .filter(users::Column::Username.eq(username))
+        .one(&state.sea_db)
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to query user via SeaORM: {e}")))?
         .ok_or_else(|| AppError::Unauthorized("Invalid username or password".into()))?;
 
     // 2. Verify password hash
-    let valid = verify_password(&payload.password, &user.password_hash)?;
+    let valid = verify_password(&payload.password, &user_model.password_hash)?;
     if !valid {
         return Err(AppError::Unauthorized("Invalid username or password".into()));
     }
+
+    let user = User {
+        id: user_model.id,
+        username: user_model.username,
+        password_hash: user_model.password_hash,
+        role: user_model.role,
+        created_at: user_model.created_at,
+        updated_at: user_model.updated_at,
+    };
 
     // 3. Issue JWT Token
     let token = create_jwt_token(&user, &state.config.jwt_secret, state.config.jwt_expiration_hours)?;
@@ -142,13 +169,13 @@ async fn get_status(
     headers: HeaderMap,
     jar: CookieJar,
 ) -> Result<Json<AuthStatusResponse>, AppError> {
-    // 1. Check if setup is required
-    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users")
-        .fetch_one(&state.db)
+    // 1. Check if setup is required using SeaORM
+    let count = users::Entity::find()
+        .count(&state.sea_db)
         .await
-        .unwrap_or((0,));
+        .unwrap_or(0);
 
-    let setup_required = count.0 == 0;
+    let setup_required = count == 0;
 
     // 2. Check if currently authenticated
     let token_from_header = headers
