@@ -40,6 +40,7 @@ pub async fn run_sea_orm_migrations(db: &DatabaseConnection) -> Result<(), AppEr
 }
 
 /// Legacy SQLx migrations runner (backward-compatible fallback)
+#[allow(dead_code)]
 pub async fn run_migrations(pool: &PgPool) -> Result<(), AppError> {
     sqlx::migrate!("./migrations")
         .run(pool)
