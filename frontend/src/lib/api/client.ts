@@ -16,7 +16,10 @@ import type {
   EncodingJob,
   EncodingJobItem,
   CreatePresetRequest,
-  QueueJobRequest
+  QueueJobRequest,
+  AppConfigDto,
+  UpdateConfigRequest,
+  PathValidationResponse
 } from './types';
 export function getApiBase(): string {
   const customUrl = import.meta.env.PUBLIC_API_URL;
@@ -166,6 +169,19 @@ export const api = {
     deleteJob: (id: string) =>
       request<{ status: string; message: string }>(`/encoder/jobs/${id}`, {
         method: 'DELETE'
+      })
+  },
+  config: {
+    get: () => request<AppConfigDto>('/config'),
+    update: (payload: UpdateConfigRequest) =>
+      request<{ status: string; message: string }>('/config', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      }),
+    validatePath: (path: string) =>
+      request<PathValidationResponse>('/config/validate-path', {
+        method: 'POST',
+        body: JSON.stringify({ path })
       })
   }
 };
