@@ -3,14 +3,17 @@ services:
     image: postgres:19-alpine
     container_name: nyaalist-db
     restart: unless-stopped
+    profiles:
+      - db
+      - local-db
     environment:
-      POSTGRES_DB: nyaalist
-      POSTGRES_USER: nyaa_user
-      POSTGRES_PASSWORD: nyaa_secure_password
+      POSTGRES_DB: ${POSTGRES_DB:-nyaalist}
+      POSTGRES_USER: ${POSTGRES_USER:-nyaa_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nyaa_secure_password}
     volumes:
       - nyaalist-pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nyaa_user -d nyaalist"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nyaa_user} -d ${POSTGRES_DB:-nyaalist}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -23,14 +26,21 @@ services:
       dockerfile: Dockerfile
     container_name: nyaalist-backend
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
+        required: false
+    env_file:
+      - path: ./backend/.env
+        required: false
+      - path: .env
+        required: false
     environment:
       - HOST=0.0.0.0
       - PORT=5041
       - APP_ENV=production
-      - DATABASE_URL=postgres://nyaa_user:nyaa_secure_password@postgres:5432/nyaalist
       - DOWNLOADS_DIR=/data/downloads
       - LIBRARY_DIR=/data/library
       - COVERS_DIR=/data/covers
