@@ -134,7 +134,10 @@ class EncoderStore {
 
     if (modified) {
       this.jobs = nextJobs;
-    } else if (telemetry.status === 'ENCODING') {
+      if (telemetry.status === 'FAILED' || telemetry.status === 'COMPLETED') {
+        this.fetchJobs();
+      }
+    } else if (telemetry.status === 'ENCODING' || telemetry.status === 'FAILED' || telemetry.status === 'COMPLETED') {
       // Re-fetch to ensure active job list is synced
       this.fetchJobs();
     }
