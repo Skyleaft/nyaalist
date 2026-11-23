@@ -2,6 +2,8 @@ import type {
   AuthStatusResponse,
   AuthSuccessResponse,
   LoginRequest,
+  NyaaRelease,
+  AnimeMetadata,
   SetupRequest,
   UserResponse
 } from './types';
@@ -45,5 +47,24 @@ export const api = {
         method: 'POST'
       }),
     getMe: () => request<UserResponse>('/auth/me')
+  },
+  explore: {
+    getLatest: (params?: { category?: string; page?: number; query?: string }) => {
+      const sp = new URLSearchParams();
+      if (params?.category) sp.set('category', params.category);
+      if (params?.page) sp.set('page', params.page.toString());
+      if (params?.query) sp.set('query', params.query);
+      return request<NyaaRelease[]>(`/explore/latest?${sp.toString()}`);
+    },
+    getUserReleases: (username: string, page?: number) => {
+      const sp = new URLSearchParams();
+      if (page) sp.set('page', page.toString());
+      return request<NyaaRelease[]>(`/explore/user/${encodeURIComponent(username)}?${sp.toString()}`);
+    },
+    syncMetadata: (title: string, nyaa_id?: number) =>
+      request<AnimeMetadata | null>('/explore/sync', {
+        method: 'POST',
+        body: JSON.stringify({ title, nyaa_id })
+      })
   }
 };

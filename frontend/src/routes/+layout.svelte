@@ -29,6 +29,21 @@
         <div class="w-3 h-3 rounded-full bg-[#32D74B] animate-pulse"></div>
         <a href="/" class="text-lg font-bold font-mono tracking-tight text-white hover:text-[#00E5FF] transition-colors">nyaalist</a>
         <span class="text-[10px] font-mono uppercase bg-[#121212] text-[#00E5FF] px-2 py-0.5 rounded border border-[#2C2C2E]">v0.1.0</span>
+
+        <nav class="hidden md:flex items-center gap-1 ml-6 text-xs font-mono">
+          <a
+            href="/"
+            class="px-3 py-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-[#252525] transition-colors"
+          >
+            Dashboard
+          </a>
+          <a
+            href="/explore"
+            class="px-3 py-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-[#252525] transition-colors"
+          >
+            Explore
+          </a>
+        </nav>
       </div>
 
       <div class="flex items-center gap-4 text-xs font-mono">
