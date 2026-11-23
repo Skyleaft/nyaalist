@@ -21,7 +21,14 @@ export default defineConfig({
 		}
 	},
 	server: {
-		port: 3040,
-		host: true
+		port: 3000,
+		host: true,
+		proxy: {
+			'/api': {
+				target: process.env.PUBLIC_API_URL || 'http://localhost:8080',
+				changeOrigin: true,
+				ws: true
+			}
+		}
 	}
 });
