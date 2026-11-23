@@ -4,6 +4,7 @@ use sqlx::PgPool;
 use crate::core::config::AppConfig;
 use crate::core::ws::WsHub;
 use crate::features::downloader::TorrentEngine;
+use crate::features::explore::anilist_client::AniListClient;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -12,6 +13,7 @@ pub struct AppState {
     pub sea_db: DatabaseConnection,
     pub ws: WsHub,
     pub torrent_engine: Arc<TorrentEngine>,
+    pub anilist_client: Arc<AniListClient>,
 }
 
 impl AppState {
@@ -21,6 +23,7 @@ impl AppState {
         sea_db: DatabaseConnection,
         ws: WsHub,
         torrent_engine: Arc<TorrentEngine>,
+        anilist_client: Arc<AniListClient>,
     ) -> Self {
         Self {
             config: Arc::new(config),
@@ -28,6 +31,7 @@ impl AppState {
             sea_db,
             ws,
             torrent_engine,
+            anilist_client,
         }
     }
 }

@@ -91,8 +91,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     encoder_worker.start();
 
-    // 8. Build AppState with SeaORM connection
-    let state = AppState::new(config.clone(), db_pool, sea_db, ws_hub, torrent_engine);
+    // 8. Initialize AniList Metadata Client & Asynchronous Sync Worker
+    let anilist_client = std::sync::Arc::new(features::explore::anilist_client::AniListClient::new(
+        config.anilist_graphql_url.clone(),
+        config.covers_dir.clone(),
+    ));
+    anilist_client.clone().start_sync_worker(db_pool.clone(), ws_hub.clone());
+
+    // 9. Build AppState with SeaORM connection & AniList client
+    let state = AppState::new(config.clone(), db_pool, sea_db, ws_hub, torrent_engine, anilist_client);
 
     // 9. Configure Router & Middleware
     let cors = CorsLayer::new()

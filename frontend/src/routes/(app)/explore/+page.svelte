@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { api } from '#lib/api/client';
+  import { api, getWebSocketUrl } from '#lib/api/client';
   import type { NyaaRelease, AnimeMetadata } from '#lib/api/types';
   import { onMount } from 'svelte';
 
@@ -18,6 +18,8 @@
   let copiedMagnetId = $state<number | null>(null);
   let downloadingIds = $state<Set<number>>(new Set());
   let downloadedSuccessIds = $state<Set<number>>(new Set());
+
+  let ws: WebSocket | null = null;
 
   async function downloadRelease(rel: NyaaRelease) {
     if (!rel.magnet_uri) return;
@@ -89,6 +91,30 @@
 
   onMount(() => {
     loadReleases();
+
+    if (typeof window !== 'undefined') {
+      try {
+        const wsUrl = getWebSocketUrl('/api/ws');
+        ws = new WebSocket(wsUrl);
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.event === 'anilist_metadata_synced' && msg.data?.title && msg.data?.metadata) {
+              const syncedTitle = msg.data.title.toLowerCase();
+              for (let i = 0; i < releases.length; i++) {
+                if (releases[i].parsed?.anime_title && releases[i].parsed.anime_title.toLowerCase() === syncedTitle) {
+                  releases[i].anilist_metadata = msg.data.metadata;
+                }
+              }
+            }
+          } catch (_) {}
+        };
+      } catch (_) {}
+    }
+
+    return () => {
+      ws?.close();
+    };
   });
 </script>
 
