@@ -16,6 +16,26 @@
   // Modal State
   let selectedAnime = $state<AnimeMetadata | null>(null);
   let copiedMagnetId = $state<number | null>(null);
+  let downloadingIds = $state<Set<number>>(new Set());
+  let downloadedSuccessIds = $state<Set<number>>(new Set());
+
+  async function downloadRelease(rel: NyaaRelease) {
+    if (!rel.magnet_uri) return;
+    downloadingIds = new Set(downloadingIds).add(rel.id);
+    try {
+      await api.downloader.add({ magnet_uri: rel.magnet_uri, nyaa_id: rel.id });
+      downloadedSuccessIds = new Set(downloadedSuccessIds).add(rel.id);
+      setTimeout(() => {
+        downloadedSuccessIds.delete(rel.id);
+        downloadedSuccessIds = new Set(downloadedSuccessIds);
+      }, 4000);
+    } catch (err: any) {
+      alert(`Failed to start download: ${err.message}`);
+    } finally {
+      downloadingIds.delete(rel.id);
+      downloadingIds = new Set(downloadingIds);
+    }
+  }
 
   async function loadReleases() {
     loading = true;
@@ -326,6 +346,25 @@
                 <!-- Action Buttons -->
                 <td class="py-3 px-4 text-right whitespace-nowrap">
                   <div class="flex items-center justify-end gap-1.5">
+                    <button
+                      onclick={() => downloadRelease(release)}
+                      disabled={downloadingIds.has(release.id)}
+                      class="px-2.5 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer flex items-center gap-1.5 {
+                        downloadedSuccessIds.has(release.id)
+                          ? 'bg-[#32D74B]/20 text-[#32D74B] border border-[#32D74B]/40 shadow-[0_0_8px_rgba(50,215,75,0.2)]'
+                          : 'bg-[#00E5FF]/20 hover:bg-[#00E5FF]/30 text-[#00E5FF] border border-[#00E5FF]/40 shadow-[0_0_8px_rgba(0,229,255,0.2)]'
+                      }"
+                      title="Download torrent with librqbit engine"
+                    >
+                      {#if downloadingIds.has(release.id)}
+                        <span class="inline-block animate-spin w-2.5 h-2.5 border border-[#00E5FF] border-t-transparent rounded-full"></span>
+                        Starting...
+                      {:else if downloadedSuccessIds.has(release.id)}
+                        ✓ Added
+                      {:else}
+                        ↓ Download
+                      {/if}
+                    </button>
                     <button
                       onclick={() => copyMagnet(release)}
                       class="px-2.5 py-1 rounded-lg text-xs font-mono bg-[#121212] hover:bg-[#252525] border border-[#2C2C2E] text-white transition-colors cursor-pointer"
