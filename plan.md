@@ -5,7 +5,7 @@
 **Nyaalist** is a self-hosted anime torrent explorer, downloader, library organizer, and video transcoding pipeline built for anime enthusiasts. It bridges raw torrent releases from [nyaa.si](https://nyaa.si) with high-fidelity anime metadata from [AniList](https://anilist.co), automates downloads via BitTorrent magnet links with live WebSocket telemetry, organizes downloaded media files into clean library directory structures, and provides an integrated FFmpeg-based transcoding pipeline for video compression.
 
 ### Technology Stack Overview
-- **Backend:** **Rust (latest stable)** (Async Tokio runtime, Axum web framework, `librqbit` BitTorrent engine, `sqlx`, and Tokio async subprocess for FFmpeg).
+- **Backend:** **Rust (latest stable)** (Async Tokio runtime, Axum web framework, `librqbit` BitTorrent engine, `sqlx` & `sea-orm` 1.1 ORM with automated first-run migrations, and Tokio async subprocess for FFmpeg).
 - **Architecture:** **Vertical Slice Architecture (VSA)** — feature-driven module partitioning instead of traditional horizontal layered folders.
 - **Database:** **PostgreSQL 19 (latest)** (ACID compliance, JSONB configuration storage, full-text search indexing).
 - **Frontend Panel:** **SvelteKit 3** ([SvelteKit 3](https://svelte.dev/blog/sveltekit-3-is-here) with Svelte 5 Runes: `$state`, `$derived`, `$effect`, and Tailwind CSS).
@@ -41,7 +41,7 @@ graph TD
 
         subgraph Core ["Core Shared Infrastructure"]
             State["AppState"]
-            DB_Pool["PgPool (sqlx)"]
+            DB_Pool["PgPool & SeaORM (sqlx / sea_orm)"]
             WSHub["WebSocket Event Hub"]
         end
     end
