@@ -1,5 +1,7 @@
 mod core;
+pub mod entities;
 mod features;
+pub mod migration;
 
 use std::net::SocketAddr;
 use axum::{
@@ -12,7 +14,7 @@ use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::core::config::AppConfig;
-use crate::core::db::create_db_pool;
+use crate::core::db::{create_db_pool, create_sea_db_connection, run_sea_orm_migrations};
 use crate::core::state::AppState;
 use crate::core::ws::WsHub;
 
@@ -37,10 +39,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::fs::create_dir_all(&config.covers_dir).await?;
     tokio::fs::create_dir_all(&config.temp_encode_dir).await?;
 
-    // 4. Connect to Database (gracefully handle initial offline state)
+    // 4. Connect to Database (both raw PgPool and SeaORM connection)
     let db_pool = match create_db_pool(&config).await {
         Ok(pool) => {
-            tracing::info!("Connected to PostgreSQL database");
+            tracing::info!("Connected to PostgreSQL database (SQLx)");
             pool
         }
         Err(err) => {
@@ -49,11 +51,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    // Run database migrations on startup
-    if let Err(err) = crate::core::db::run_migrations(&db_pool).await {
-        tracing::warn!("Automated database migrations warning: {}", err);
+    let sea_db = match create_sea_db_connection(&config).await {
+        Ok(conn) => {
+            tracing::info!("Connected to PostgreSQL database via SeaORM");
+            conn
+        }
+        Err(err) => {
+            tracing::warn!("Failed initial SeaORM connection ({}). Re-trying...", err);
+            create_sea_db_connection(&config).await?
+        }
+    };
+
+    // Run SeaORM database migrations on first run
+    tracing::info!("Verifying and executing SeaORM database migrations on startup...");
+    if let Err(err) = run_sea_orm_migrations(&sea_db).await {
+        tracing::warn!("SeaORM migration warning: {}", err);
     } else {
-        tracing::info!("Database schema migrations applied successfully");
+        tracing::info!("SeaORM database schema verified and up-to-date");
     }
 
     // 5. Initialize WebSocket Hub
@@ -77,8 +91,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     encoder_worker.start();
 
-    // 8. Build AppState
-    let state = AppState::new(config.clone(), db_pool, ws_hub, torrent_engine);
+    // 8. Build AppState with SeaORM connection
+    let state = AppState::new(config.clone(), db_pool, sea_db, ws_hub, torrent_engine);
 
     // 9. Configure Router & Middleware
     let cors = CorsLayer::new()
