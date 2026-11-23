@@ -7,7 +7,11 @@ import type {
   SetupRequest,
   UserResponse,
   DownloadJob,
-  AddTorrentRequest
+  AddTorrentRequest,
+  LibraryFileItem,
+  MoveFileRequest,
+  AutoOrganizeRequest,
+  ScanDirectoryResult
 } from './types';
 export function getApiBase(): string {
   const customUrl = import.meta.env.PUBLIC_API_URL;
@@ -104,6 +108,32 @@ export const api = {
       }),
     delete: (id: string, deleteFiles = false) =>
       request<{ status: string; id: string }>(`/downloader/${id}?delete_files=${deleteFiles}`, {
+        method: 'DELETE'
+      })
+  },
+  library: {
+    getFiles: (params?: { is_moved?: boolean; search?: string }) => {
+      const sp = new URLSearchParams();
+      if (params?.is_moved !== undefined) sp.set('is_moved', params.is_moved.toString());
+      if (params?.search) sp.set('search', params.search);
+      return request<LibraryFileItem[]>(`/library/files?${sp.toString()}`);
+    },
+    scan: () =>
+      request<ScanDirectoryResult>('/library/scan', {
+        method: 'POST'
+      }),
+    move: (payload: MoveFileRequest) =>
+      request<{ status: string; source: string; target: string }>('/library/move', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      }),
+    autoOrganize: (payload: AutoOrganizeRequest) =>
+      request<{ status: string; organized_count: number; files: any[] }>('/library/auto-organize', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      }),
+    delete: (id: string) =>
+      request<{ status: string; id: string }>(`/library/files/${id}`, {
         method: 'DELETE'
       })
   }

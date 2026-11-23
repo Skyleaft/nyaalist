@@ -77,6 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .nest("/api/explore", features::explore::router())
         .nest("/api/covers", features::explore::covers_router())
         .nest("/api/downloader", features::downloader::router())
+        .nest("/api/library", features::library::router())
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(state);
