@@ -239,3 +239,40 @@ export interface QueueJobRequest {
   preset_id?: string;
   target_file_path?: string;
 }
+
+export interface AppConfigDto {
+  downloads_dir: string;
+  library_dir: string;
+  covers_dir: string;
+  temp_encode_dir: string;
+  nyaa_base_url: string;
+  nyaa_default_category: string;
+  anilist_graphql_url: string;
+  torrent_listen_port: number;
+  torrent_enable_dht: boolean;
+  torrent_global_download_limit_kbps: number;
+  torrent_global_upload_limit_kbps: number;
+  ffmpeg_binary_path: string;
+  ffprobe_binary_path: string;
+  encoder_default_preset: string;
+}
+
+export interface UpdateConfigRequest {
+  downloads_dir?: string;
+  library_dir?: string;
+  nyaa_default_category?: string;
+  torrent_global_download_limit_kbps?: number;
+  torrent_global_upload_limit_kbps?: number;
+  encoder_default_preset?: string;
+}
+
+export interface ValidatePathRequest {
+  path: string;
+}
+
+export interface PathValidationResponse {
+  path: string;
+  exists: boolean;
+  is_dir: boolean;
+  writable: boolean;
+}
