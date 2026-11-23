@@ -94,8 +94,7 @@ impl TorrentEngine {
         let total_bytes = handle.stats().total_bytes as i64;
         let save_path = self.downloads_dir.to_string_lossy().to_string();
 
-        let job = sqlx::query_as::<_, DownloadJob>(
-            r#"
+        let insert_query = r#"
             INSERT INTO download_jobs (
                 nyaa_torrent_id, info_hash, name, magnet_uri, save_path, status,
                 total_bytes, downloaded_bytes, uploaded_bytes, download_speed, upload_speed,
@@ -109,16 +108,47 @@ impl TorrentEngine {
                 total_bytes, downloaded_bytes, uploaded_bytes, download_speed, upload_speed,
                 progress_pct, eta_seconds, seeders, peers, error_message, started_at,
                 completed_at, created_at, updated_at
-            "#,
-        )
-        .bind(req.nyaa_id)
-        .bind(&info_hash)
-        .bind(&resolved_name)
-        .bind(&magnet_uri)
-        .bind(&save_path)
-        .bind(total_bytes)
-        .fetch_one(&self.db)
-        .await?;
+        "#;
+
+        let job_result = sqlx::query_as::<_, DownloadJob>(insert_query)
+            .bind(req.nyaa_id)
+            .bind(&info_hash)
+            .bind(&resolved_name)
+            .bind(&magnet_uri)
+            .bind(&save_path)
+            .bind(total_bytes)
+            .fetch_one(&self.db)
+            .await;
+
+        let job = match job_result {
+            Ok(job) => job,
+            Err(e) => {
+                let is_fk_err = if let sqlx::Error::Database(ref db_err) = e {
+                    db_err.code().as_deref() == Some("23503")
+                        || db_err.message().contains("download_jobs_nyaa_torrent_id_fkey")
+                } else {
+                    false
+                };
+
+                if is_fk_err && req.nyaa_id.is_some() {
+                    warn!(
+                        "Foreign key constraint on nyaa_torrent_id failed for ID {:?}. Retrying insert with NULL nyaa_torrent_id...",
+                        req.nyaa_id
+                    );
+                    sqlx::query_as::<_, DownloadJob>(insert_query)
+                        .bind(Option::<i64>::None)
+                        .bind(&info_hash)
+                        .bind(&resolved_name)
+                        .bind(&magnet_uri)
+                        .bind(&save_path)
+                        .bind(total_bytes)
+                        .fetch_one(&self.db)
+                        .await?
+                } else {
+                    return Err(e.into());
+                }
+            }
+        };
 
         info!("Torrent added successfully: {} ({})", job.name, job.info_hash);
         Ok(job)

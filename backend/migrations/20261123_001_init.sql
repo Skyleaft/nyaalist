@@ -94,7 +94,7 @@ CREATE INDEX IF NOT EXISTS idx_nyaa_torrents_created ON nyaa_torrents (nyaa_crea
 -- 6. Active and Completed Download Jobs
 CREATE TABLE IF NOT EXISTS download_jobs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    nyaa_torrent_id BIGINT REFERENCES nyaa_torrents(id) ON DELETE SET NULL,
+    nyaa_torrent_id BIGINT,
     info_hash VARCHAR(64) UNIQUE NOT NULL,
     name TEXT NOT NULL,
     magnet_uri TEXT NOT NULL,
