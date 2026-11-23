@@ -951,14 +951,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     ca-certificates \
     libssl3 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY --from=builder /app/target/release/nyaalist-backend /app/nyaalist-backend
 COPY --from=builder /app/migrations /app/migrations
 
-ENV RUST_LOG=info
-EXPOSE 8080
+RUN mkdir -p /data/downloads /data/library /data/covers /data/temp_encode
+
+ENV RUST_LOG=info,nyaalist=debug,tower_http=info
+ENV PORT=5041
+ENV HOST=0.0.0.0
+EXPOSE 5041
 ENTRYPOINT ["/app/nyaalist-backend"]
 ```
 
@@ -966,19 +971,25 @@ ENTRYPOINT ["/app/nyaalist-backend"]
 Builds SvelteKit 3 with Node 26 Alpine:
 
 ```dockerfile
+# Stage 1: Build SvelteKit 3 application
 FROM node:26-alpine AS builder
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
+RUN corepack enable && corepack prepare pnpm@latest --activate
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 COPY . .
-RUN npm run build
+RUN pnpm run build
 
+# Stage 2: Minimal production runtime with Node 26 Alpine
 FROM node:26-alpine AS runner
 WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@latest --activate
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --prod --frozen-lockfile
 COPY --from=builder /app/build ./build
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/node_modules ./node_modules
 ENV PORT=3000
+ENV HOST=0.0.0.0
+ENV NODE_ENV=production
 EXPOSE 3000
 CMD ["node", "build"]
 ```
@@ -986,8 +997,6 @@ CMD ["node", "build"]
 ### 8.3 Docker Compose Specification (`docker-compose.yml`)
 
 ```yaml
-version: '3.8'
-
 services:
   postgres:
     image: postgres:19-alpine
@@ -1004,6 +1013,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    ports:
+      - "5432:5432"
 
   backend:
     build:
@@ -1014,14 +1025,23 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    env_file:
-      - .env
+    environment:
+      - HOST=0.0.0.0
+      - PORT=5041
+      - APP_ENV=production
+      - DATABASE_URL=postgres://nyaa_user:nyaa_secure_password@postgres:5432/nyaalist
+      - DOWNLOADS_DIR=/data/downloads
+      - LIBRARY_DIR=/data/library
+      - COVERS_DIR=/data/covers
+      - TEMP_ENCODE_DIR=/data/temp_encode
+      - RUST_LOG=info,nyaalist=debug,tower_http=info
     volumes:
       - ./data/downloads:/data/downloads
       - ./data/library:/data/library
       - ./data/covers:/data/covers
+      - ./data/temp_encode:/data/temp_encode
     ports:
-      - "8080:8080"
+      - "5041:5041"
 
   frontend:
     build:
@@ -1032,9 +1052,12 @@ services:
     depends_on:
       - backend
     environment:
-      ORIGIN: http://localhost:3000
-      PUBLIC_API_URL: http://localhost:8080
-      PUBLIC_WS_URL: ws://localhost:8080/api/ws
+      - ORIGIN=http://localhost:3000
+      - PORT=3000
+      - HOST=0.0.0.0
+      - NODE_ENV=production
+      - PUBLIC_API_URL=http://localhost:5041
+      - PUBLIC_WS_URL=ws://localhost:5041/api/ws
     ports:
       - "3000:3000"
 

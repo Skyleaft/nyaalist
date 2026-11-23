@@ -49,6 +49,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
+    // Run database migrations on startup
+    if let Err(err) = crate::core::db::run_migrations(&db_pool).await {
+        tracing::warn!("Automated database migrations warning: {}", err);
+    } else {
+        tracing::info!("Database schema migrations applied successfully");
+    }
+
     // 5. Initialize WebSocket Hub
     let ws_hub = WsHub::new(1024);
 
