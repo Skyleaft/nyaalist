@@ -173,8 +173,10 @@ pnpm --dir frontend run build
 ```
 
 ### Docker Compose
+> **Notice:** Do not automatically deploy or run `docker compose up --build` after coding and testing unless explicitly instructed by the user.
+
 ```bash
-# Start full stack (PostgreSQL 19, Backend, Frontend)
+# Start full stack (PostgreSQL 19, Backend, Frontend) - only when requested
 docker compose up --build -d
 
 # View live logs
@@ -190,3 +192,4 @@ docker compose logs -f backend
 3. **N+1 Prevention:** Always batch database lookups using array parameters (`= ANY($1)`) rather than running single-item queries in iteration loops.
 4. **Resilient Downloader Inserts:** Ensure torrent additions never crash the whole request when external foreign keys are missing; always provide defensive database fallbacks.
 5. **No Polling Over HTTP:** High-frequency metrics (speeds, frames, sync status) must always be delivered through WebSockets.
+6. **Do Not Deploy Docker Compose After Coding & Testing:** After completing code edits and verifying with tests/checks (e.g. `cargo check`, `cargo test`, `pnpm run check`), do NOT automatically deploy, rebuild, or restart services via Docker Compose (`docker compose up`, `docker compose build`, etc.) unless the user explicitly requests it.
