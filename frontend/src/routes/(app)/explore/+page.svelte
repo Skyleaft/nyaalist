@@ -513,62 +513,7 @@
   {/if}
 
   <!-- Releases Data Table -->
-  <div bind:this={tableTopRef} class="glass-panel rounded-3xl shadow-2xl border border-slate-200/80 dark:border-white/10 overflow-hidden">
-    <!-- Table Quick Bar: Summary & Top Pagination -->
-    <div class="px-5 py-3 border-b border-slate-200/80 dark:border-white/5 bg-slate-100/60 dark:bg-slate-950/40 flex items-center justify-between gap-3 text-xs font-mono flex-wrap backdrop-blur-md">
-      <div class="flex items-center gap-2">
-        <span class="text-slate-600 dark:text-slate-400">
-          Showing <strong class="text-slate-900 dark:text-white font-bold">{releases.length}</strong> releases
-        </span>
-        <span class="text-slate-400 dark:text-slate-600">•</span>
-        <span class="text-slate-600 dark:text-slate-400">
-          Page <strong class="text-cyan-600 dark:text-cyan-300 font-bold">{page}</strong>
-        </span>
-        {#if loading}
-          <div class="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400 text-[11px] ml-1">
-            <span class="inline-block animate-spin w-3 h-3 border-2 border-cyan-500 border-t-transparent rounded-full"></span>
-            <span>Updating...</span>
-          </div>
-        {/if}
-      </div>
-
-      <!-- Top Quick Pagination Controls -->
-      <div class="flex items-center gap-1.5">
-        <button
-          type="button"
-          onclick={() => goToPage(1)}
-          disabled={page <= 1 || loading}
-          class="btn-expressive p-1.5 rounded-xl glass-pill text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer"
-          title="First Page"
-        >
-          <ChevronsLeft class="w-3.5 h-3.5" />
-        </button>
-        <button
-          type="button"
-          onclick={() => goToPage(page - 1)}
-          disabled={page <= 1 || loading}
-          class="btn-expressive px-2.5 py-1 rounded-xl glass-pill text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer flex items-center gap-1 text-[11px]"
-          title="Previous Page (Left Arrow)"
-        >
-          <ChevronLeft class="w-3.5 h-3.5" />
-          <span class="hidden sm:inline">Prev</span>
-        </button>
-        <span class="px-2.5 py-0.5 rounded-lg bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-400/25 font-bold text-[11px]">
-          {page}
-        </span>
-        <button
-          type="button"
-          onclick={() => goToPage(page + 1)}
-          disabled={loading || releases.length === 0}
-          class="btn-expressive px-2.5 py-1 rounded-xl glass-pill text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer flex items-center gap-1 text-[11px]"
-          title="Next Page (Right Arrow)"
-        >
-          <span class="hidden sm:inline">Next</span>
-          <ChevronRight class="w-3.5 h-3.5" />
-        </button>
-      </div>
-    </div>
-
+  <div bind:this={tableTopRef} class="glass-panel rounded-3xl overflow-hidden shadow-2xl border border-slate-200/80 dark:border-white/10">
     <!-- Active Loading Shimmer Bar -->
     {#if loading}
       <div class="h-0.5 w-full bg-gradient-to-r from-cyan-400 via-sky-400 to-indigo-500 animate-pulse"></div>
@@ -576,24 +521,24 @@
 
     <div class="overflow-x-auto">
       <table class="w-full text-left text-sm border-collapse">
-        <thead class="sticky top-16 z-20 bg-slate-100/95 dark:bg-slate-950/95 border-b border-slate-200/80 dark:border-white/10 text-[11px] font-mono text-slate-600 dark:text-slate-300 uppercase tracking-wider backdrop-blur-xl shadow-sm">
+        <thead class="bg-slate-100/90 dark:bg-slate-950/70 border-b border-slate-200/80 dark:border-white/10 text-[11px] font-mono text-slate-600 dark:text-slate-300 uppercase tracking-wider backdrop-blur-md">
           <tr>
-            <th class="py-3.5 px-4 w-14">Cover</th>
-            <th class="py-3.5 px-4">Release Title & Technical Tags</th>
-            <th class="py-3.5 px-4 w-48">AniList Match</th>
+            <th class="py-3.5 px-4 w-14 font-semibold">Cover</th>
+            <th class="py-3.5 px-4 font-semibold">Release Title & Technical Tags</th>
+            <th class="py-3.5 px-4 w-48 font-semibold">AniList Match</th>
             <th
-              class="py-3.5 px-4 w-32 cursor-pointer select-none hover:text-slate-900 dark:hover:text-white transition-colors"
+              class="py-3.5 px-4 w-32 cursor-pointer select-none hover:text-slate-900 dark:hover:text-white transition-colors font-semibold"
               onclick={toggleDateSort}
               title="Click to sort by date ({sortOrder === 'desc' ? 'Newest first' : 'Oldest first'})"
             >
               <div class="flex items-center gap-1.5">
                 <span>Date</span>
-                <span class="text-cyan-400 font-bold text-xs">{sortOrder === 'desc' ? '↓' : '↑'}</span>
+                <span class="text-cyan-500 dark:text-cyan-400 font-bold text-xs">{sortOrder === 'desc' ? '↓' : '↑'}</span>
               </div>
             </th>
-            <th class="py-3.5 px-4 w-24">Size</th>
-            <th class="py-3.5 px-4 w-24">S / L</th>
-            <th class="py-3.5 px-4 w-44 text-right">Actions</th>
+            <th class="py-3.5 px-4 w-24 font-semibold">Size</th>
+            <th class="py-3.5 px-4 w-24 font-semibold">S / L</th>
+            <th class="py-3.5 px-4 w-44 text-right font-semibold">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-200/60 dark:divide-white/5 transition-opacity duration-200 {loading && isPageChanging ? 'opacity-40 pointer-events-none' : 'opacity-100'}">
