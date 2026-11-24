@@ -3,6 +3,23 @@
   import { library } from '#lib/stores/library.svelte';
   import { api } from '#lib/api/client';
   import type { LibraryFileItem, EncodingPreset } from '#lib/api/types';
+  import {
+    Library,
+    RefreshCw,
+    Zap,
+    FolderKanban,
+    HardDrive,
+    CheckCircle2,
+    Clock,
+    Film,
+    Search,
+    X,
+    Move,
+    Trash2,
+    Code2,
+    Sparkles,
+    Check
+  } from 'lucide-svelte';
 
   let filterStatus = $state<'ALL' | 'PENDING' | 'ORGANIZED'>('ALL');
   let searchQuery = $state('');
@@ -52,7 +69,7 @@
   }
 
   const filteredItems = $derived(
-    library.items.filter(item => {
+    library.items.filter((item: any) => {
       if (filterStatus === 'PENDING' && item.is_moved) return false;
       if (filterStatus === 'ORGANIZED' && !item.is_moved) return false;
       if (searchQuery.trim().length > 0) {
@@ -77,7 +94,6 @@
 
   function openMoveModal(item: LibraryFileItem) {
     selectedFile = item;
-    // Derive recommended target folder
     const targetPath = item.target_library_path || item.current_path;
     const lastSlash = Math.max(targetPath.lastIndexOf('/'), targetPath.lastIndexOf('\\'));
     if (lastSlash > 0) {
@@ -157,7 +173,6 @@
     encodeError = null;
     encodeSuccess = null;
 
-    // Derive suggested output path: in same directory with _encoded.mkv
     const source = item.current_path;
     const lastDot = source.lastIndexOf('.');
     if (lastDot > 0) {
@@ -208,19 +223,21 @@
   <title>Library Management | Nyaalist</title>
 </svelte:head>
 
-<div class="space-y-6">
-  <!-- Header & Actions -->
-  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-    <div>
-      <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-3">
-        <svg class="w-7 h-7 text-[#00E5FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-        </svg>
-        Anime Library Management
-      </h1>
-      <p class="text-xs text-gray-400 mt-1 font-mono">
-        Scan, match with AniList metadata, and organize media into structured Plex/Jellyfin directories
-      </p>
+<div class="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
+  <!-- Header & Actions Deck -->
+  <div class="glass-panel rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-white/10">
+    <div class="flex items-center gap-4">
+      <div class="p-3.5 rounded-2xl bg-sky-500/10 text-sky-300 border border-sky-500/25 shadow-[0_0_20px_rgba(56,189,248,0.2)]">
+        <FolderKanban class="w-7 h-7" />
+      </div>
+      <div>
+        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+          Anime Library Management
+        </h1>
+        <p class="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+          Scan, match with AniList metadata, and organize media into structured Plex/Jellyfin directories
+        </p>
+      </div>
     </div>
 
     <div class="flex items-center gap-3">
@@ -228,102 +245,99 @@
       <button
         onclick={handleScan}
         disabled={library.scanning}
-        class="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#1E1E1E] hover:bg-[#252525] border border-[#2C2C2E] text-white font-mono text-xs transition-all disabled:opacity-50 cursor-pointer"
+        class="btn-expressive px-4 py-2.5 rounded-2xl glass-pill text-slate-700 dark:text-white font-mono text-xs transition-all disabled:opacity-50 cursor-pointer flex items-center gap-2"
       >
-        <span class={library.scanning ? 'animate-spin' : ''}>↻</span>
-        {library.scanning ? 'Scanning...' : 'Scan Downloads'}
+        <RefreshCw class="w-3.5 h-3.5 {library.scanning ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}" />
+        <span>{library.scanning ? 'Scanning...' : 'Scan Downloads'}</span>
       </button>
 
       <!-- Auto-Organize All -->
       <button
         onclick={handleAutoOrganizeAll}
         disabled={library.organizing || library.pendingCount === 0}
-        class="flex items-center gap-2 px-4 py-2 bg-[#00E5FF] hover:bg-[#00E5FF]/90 text-black font-semibold text-xs font-mono rounded-lg transition-all shadow-[0_0_15px_rgba(0,229,255,0.3)] disabled:opacity-50 cursor-pointer"
+        class="btn-expressive px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-400 hover:to-sky-400 text-white font-bold text-xs font-mono rounded-2xl transition-all shadow-[0_0_20px_rgba(0,229,255,0.25)] disabled:opacity-40 cursor-pointer flex items-center gap-2"
       >
         {#if library.organizing}
-          <span class="inline-block animate-spin w-3 h-3 border-2 border-black border-t-transparent rounded-full"></span>
-          Organizing...
+          <span class="inline-block animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full"></span>
+          <span>Organizing...</span>
         {:else}
-          ⚡ Auto-Organize All ({library.pendingCount})
+          <Zap class="w-4 h-4 stroke-[2.5]" />
+          <span>Auto-Organize All ({library.pendingCount})</span>
         {/if}
       </button>
     </div>
   </div>
 
-  <!-- Telemetry KPI Banners -->
-  <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
-    <!-- Total Files -->
-    <div class="p-4 rounded-xl bg-[#1E1E1E] border border-[#2C2C2E]">
-      <span class="text-xs font-medium text-gray-400">TOTAL FILES</span>
-      <div class="mt-2 text-2xl font-bold font-mono text-white">
+  <!-- Telemetry KPI Banners (5 M3 Cards) -->
+  <div class="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
+    <div class="glass-card-interactive rounded-3xl p-5">
+      <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wider uppercase text-[11px]">TOTAL FILES</span>
+      <div class="mt-2 text-2xl sm:text-3xl font-extrabold font-mono text-slate-900 dark:text-white">
         {library.totalCount}
       </div>
     </div>
 
-    <!-- Organized -->
-    <div class="p-4 rounded-xl bg-[#1E1E1E] border border-[#2C2C2E]">
+    <div class="glass-card-interactive rounded-3xl p-5">
       <div class="flex justify-between items-start">
-        <span class="text-xs font-medium text-gray-400">ORGANIZED</span>
-        <span class="text-xs font-mono text-[#32D74B]">✓ READY</span>
+        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wider uppercase text-[11px]">ORGANIZED</span>
+        <CheckCircle2 class="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
       </div>
-      <div class="mt-2 text-2xl font-bold font-mono text-[#32D74B]">
+      <div class="mt-2 text-2xl sm:text-3xl font-extrabold font-mono text-emerald-600 dark:text-emerald-400">
         {library.movedCount}
       </div>
     </div>
 
-    <!-- Pending -->
-    <div class="p-4 rounded-xl bg-[#1E1E1E] border border-[#2C2C2E]">
+    <div class="glass-card-interactive rounded-3xl p-5">
       <div class="flex justify-between items-start">
-        <span class="text-xs font-medium text-gray-400">PENDING MOVE</span>
-        <span class="text-xs font-mono text-amber-400">DOWNLOADS</span>
+        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wider uppercase text-[11px]">PENDING MOVE</span>
+        <Clock class="w-4 h-4 text-amber-500 dark:text-amber-400" />
       </div>
-      <div class="mt-2 text-2xl font-bold font-mono text-amber-400">
+      <div class="mt-2 text-2xl sm:text-3xl font-extrabold font-mono text-amber-600 dark:text-amber-300">
         {library.pendingCount}
       </div>
     </div>
 
-    <!-- Encoded -->
-    <div class="p-4 rounded-xl bg-[#1E1E1E] border border-[#2C2C2E]">
+    <div class="glass-card-interactive rounded-3xl p-5">
       <div class="flex justify-between items-start">
-        <span class="text-xs font-medium text-gray-400">ENCODED</span>
-        <span class="text-xs font-mono text-[#00E5FF]">FFMPEG</span>
+        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wider uppercase text-[11px]">ENCODED</span>
+        <Film class="w-4 h-4 text-purple-500 dark:text-purple-400" />
       </div>
-      <div class="mt-2 text-2xl font-bold font-mono text-[#00E5FF]">
+      <div class="mt-2 text-2xl sm:text-3xl font-extrabold font-mono text-purple-600 dark:text-purple-300">
         {library.encodedCount}
       </div>
     </div>
 
-    <!-- Storage Used -->
-    <div class="p-4 rounded-xl bg-[#1E1E1E] border border-[#2C2C2E]">
-      <span class="text-xs font-medium text-gray-400">TRACKED STORAGE</span>
-      <div class="mt-2 text-2xl font-bold font-mono text-gray-200">
+    <div class="glass-card-interactive rounded-3xl p-5">
+      <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wider uppercase text-[11px]">TRACKED STORAGE</span>
+      <div class="mt-2 text-2xl sm:text-3xl font-extrabold font-mono text-cyan-600 dark:text-cyan-300">
         {formatBytes(library.totalSizeBytes)}
       </div>
     </div>
   </div>
 
   <!-- Template Info Bar -->
-  <div class="p-3 bg-[#1E1E1E] rounded-xl border border-[#2C2C2E] flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs font-mono">
+  <div class="glass-panel p-3.5 rounded-2xl border border-slate-200/80 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs font-mono">
     <div class="flex items-center gap-2 overflow-x-auto">
-      <span class="text-gray-400 font-semibold">PATTERN:</span>
-      <code class="px-2 py-0.5 rounded bg-[#121212] text-[#00E5FF] border border-[#2C2C2E] whitespace-nowrap">
+      <Code2 class="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
+      <span class="text-slate-600 dark:text-slate-400 font-bold">PATTERN:</span>
+      <code class="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-950/60 text-cyan-600 dark:text-cyan-300 border border-slate-200/80 dark:border-white/5 whitespace-nowrap">
         {customTemplate}
       </code>
     </div>
-    <div class="text-[11px] text-gray-500 whitespace-nowrap">
+    <div class="text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
       Variables: <code>&#123;anime_title&#125;</code>, <code>&#123;season:02d&#125;</code>, <code>&#123;episode:02d&#125;</code>, <code>&#123;resolution&#125;</code>
     </div>
   </div>
 
-  <!-- Filters & Controls Bar -->
-  <div class="flex flex-col sm:flex-row justify-between items-center gap-4 bg-[#1E1E1E] p-3 rounded-xl border border-[#2C2C2E]">
+  <!-- Filters & Controls Deck -->
+  <div class="glass-panel p-3.5 rounded-3xl border border-slate-200/80 dark:border-white/10 flex flex-col sm:flex-row justify-between items-center gap-3">
     <div class="flex items-center gap-1.5 w-full sm:w-auto">
       {#each ['ALL', 'PENDING', 'ORGANIZED'] as const as st}
         <button
           onclick={() => (filterStatus = st)}
-          class="px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all cursor-pointer {filterStatus === st
-            ? 'bg-[#00E5FF]/20 text-[#00E5FF] border border-[#00E5FF]/40'
-            : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent'}"
+          class="btn-expressive px-4 py-1.5 rounded-full text-xs font-mono font-semibold transition-all cursor-pointer {filterStatus === st
+            ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-400/40 shadow-[0_0_12px_rgba(0,229,255,0.25)]'
+            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 border border-transparent'}"
         >
           {st}
         </button>
@@ -331,16 +345,17 @@
     </div>
 
     <div class="relative w-full sm:w-72">
+      <Search class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
       <input
         type="text"
         bind:value={searchQuery}
         placeholder="Filter by title or filename..."
-        class="w-full bg-[#121212] border border-[#2C2C2E] rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#00E5FF]"
+        class="glass-input w-full rounded-2xl pl-9 pr-8 py-2 text-xs font-mono"
       />
       {#if searchQuery}
         <button
           onclick={() => (searchQuery = '')}
-          class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white text-xs cursor-pointer"
+          class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-white text-xs cursor-pointer"
         >
           ✕
         </button>
@@ -350,44 +365,42 @@
 
   <!-- Files List Table -->
   {#if library.loading && library.items.length === 0}
-    <div class="text-center py-16 bg-[#1E1E1E] rounded-xl border border-[#2C2C2E]">
-      <div class="inline-block animate-spin w-8 h-8 border-2 border-[#00E5FF] border-t-transparent rounded-full mb-3"></div>
-      <p class="text-sm font-mono text-gray-400">Loading library files...</p>
+    <div class="text-center py-20 glass-panel rounded-3xl border border-slate-200/80 dark:border-white/10">
+      <div class="inline-block animate-spin w-8 h-8 border-2 border-cyan-500 dark:border-cyan-400 border-t-transparent rounded-full mb-3"></div>
+      <p class="text-sm font-mono text-slate-500 dark:text-slate-400">Loading library files...</p>
     </div>
   {:else if filteredItems.length === 0}
-    <div class="text-center py-16 bg-[#1E1E1E] rounded-xl border border-[#2C2C2E]">
-      <svg class="w-12 h-12 mx-auto text-gray-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-      </svg>
-      <h3 class="text-base font-semibold text-white">No library files found</h3>
-      <p class="text-xs text-gray-400 mt-1 max-w-sm mx-auto">
+    <div class="text-center py-20 glass-panel rounded-3xl border border-slate-200/80 dark:border-white/10 space-y-4">
+      <FolderKanban class="w-12 h-12 text-slate-400 dark:text-slate-600 mx-auto" />
+      <h3 class="text-base font-bold text-slate-900 dark:text-white font-mono">No library files found</h3>
+      <p class="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto font-mono">
         Scan your downloads folder to automatically detect completed video files.
       </p>
-      <div class="mt-4">
+      <div class="pt-2">
         <button
           onclick={handleScan}
-          class="px-4 py-2 bg-[#00E5FF] text-black font-semibold rounded-lg text-xs font-mono cursor-pointer"
+          class="btn-expressive px-5 py-2.5 bg-gradient-to-r from-cyan-400 to-sky-400 text-slate-950 font-bold rounded-2xl text-xs font-mono shadow-[0_0_15px_rgba(0,229,255,0.25)] cursor-pointer"
         >
           Scan Downloads Now
         </button>
       </div>
     </div>
   {:else}
-    <div class="bg-[#1E1E1E] border border-[#2C2C2E] rounded-xl overflow-hidden shadow-xl">
+    <div class="glass-panel rounded-3xl overflow-hidden shadow-2xl border border-slate-200/80 dark:border-white/10">
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
           <thead>
-            <tr class="border-b border-[#2C2C2E] bg-[#121212]/80 text-[10px] uppercase font-mono text-gray-400">
-              <th class="py-3 px-4">Anime & Episode</th>
-              <th class="py-3 px-4">File Path & Size</th>
-              <th class="py-3 px-4">Destination Target</th>
-              <th class="py-3 px-4">Status</th>
-              <th class="py-3 px-4 text-right">Actions</th>
+            <tr class="border-b border-slate-200/80 dark:border-white/5 bg-slate-100/90 dark:bg-slate-950/70 text-[10px] uppercase font-mono text-slate-600 dark:text-slate-300 backdrop-blur-md">
+              <th class="py-3.5 px-4">Anime & Episode</th>
+              <th class="py-3.5 px-4">File Path & Size</th>
+              <th class="py-3.5 px-4">Destination Target</th>
+              <th class="py-3.5 px-4">Status</th>
+              <th class="py-3.5 px-4 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-[#2C2C2E]/60 text-xs">
+          <tbody class="divide-y divide-white/5 text-xs">
             {#each filteredItems as item (item.id)}
-              <tr class="hover:bg-white/5 transition-colors">
+              <tr class="hover:bg-white/[0.04] transition-colors">
                 <!-- Anime & Episode -->
                 <td class="py-3.5 px-4">
                   <div class="flex items-start gap-3">
@@ -395,30 +408,30 @@
                       <img
                         src="/api/covers/{item.anime_cover_path}"
                         alt="Cover"
-                        class="w-10 h-14 object-cover rounded border border-[#2C2C2E] shrink-0"
+                        class="w-10 h-14 object-cover rounded-xl border border-white/10 shrink-0 shadow-md"
                       />
                     {:else}
-                      <div class="w-10 h-14 bg-[#121212] rounded border border-[#2C2C2E] flex items-center justify-center shrink-0 text-gray-600 font-mono text-[10px]">
+                      <div class="w-10 h-14 bg-slate-200 dark:bg-slate-900 rounded-xl border border-slate-300/60 dark:border-white/10 flex items-center justify-center shrink-0 text-slate-400 dark:text-slate-500 font-mono text-[10px]">
                         MEDIA
                       </div>
                     {/if}
 
                     <div class="min-w-0">
-                      <div class="font-semibold text-white truncate max-w-sm" title={item.anime_title || item.original_filename}>
+                      <div class="font-bold text-slate-900 dark:text-white truncate max-w-sm" title={item.anime_title || item.original_filename}>
                         {item.anime_title || item.original_filename}
                       </div>
-                      <div class="text-[11px] font-mono text-gray-400 truncate max-w-sm mt-0.5">
+                      <div class="text-[11px] font-mono text-slate-500 dark:text-slate-400 truncate max-w-sm mt-0.5">
                         {item.original_filename}
                       </div>
 
                       <div class="flex items-center gap-1.5 mt-2 flex-wrap">
-                        <span class="px-1.5 py-0.5 rounded bg-[#121212] border border-[#2C2C2E] text-[10px] font-mono text-gray-300">
+                        <span class="px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 text-[10px] font-mono text-slate-700 dark:text-slate-300">
                           S{item.season || 1}
                         </span>
-                        <span class="px-1.5 py-0.5 rounded bg-[#121212] border border-[#2C2C2E] text-[10px] font-mono text-gray-300">
+                        <span class="px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 text-[10px] font-mono text-slate-700 dark:text-slate-300">
                           EP {item.episode || '01'}
                         </span>
-                        <span class="px-1.5 py-0.5 rounded bg-[#121212] border border-[#2C2C2E] text-[10px] font-mono text-[#00E5FF]">
+                        <span class="px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-400/25 text-[10px] font-mono text-cyan-600 dark:text-cyan-300 font-semibold">
                           {item.resolution || '1080p'}
                         </span>
                       </div>
@@ -428,10 +441,10 @@
 
                 <!-- File Path & Size -->
                 <td class="py-3.5 px-4 font-mono">
-                  <div class="text-white text-xs font-bold">
+                  <div class="text-slate-900 dark:text-white text-xs font-bold">
                     {formatBytes(item.file_size_bytes)}
                   </div>
-                  <div class="text-[10px] text-gray-500 truncate max-w-xs mt-1" title={item.current_path}>
+                  <div class="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-xs mt-1" title={item.current_path}>
                     {item.current_path}
                   </div>
                 </td>
@@ -439,11 +452,11 @@
                 <!-- Target Path -->
                 <td class="py-3.5 px-4 font-mono">
                   {#if item.target_library_path}
-                    <div class="text-[11px] text-[#00E5FF] truncate max-w-xs" title={item.target_library_path}>
+                    <div class="text-[11px] text-cyan-600 dark:text-cyan-300 truncate max-w-xs" title={item.target_library_path}>
                       {item.target_library_path}
                     </div>
                   {:else}
-                    <span class="text-gray-500 italic text-[11px]">Unassigned</span>
+                    <span class="text-slate-400 dark:text-slate-500 italic text-[11px]">Unassigned</span>
                   {/if}
                 </td>
 
@@ -452,22 +465,22 @@
                   <div class="space-y-1">
                     <div>
                       {#if item.is_moved}
-                        <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#32D74B]/20 text-[#32D74B] border border-[#32D74B]/40 shadow-[0_0_8px_rgba(50,215,75,0.2)]">
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_8px_rgba(50,215,75,0.2)]">
                           ✓ ORGANIZED
                         </span>
                       {:else}
-                        <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
                           PENDING MOVE
                         </span>
                       {/if}
                     </div>
                     <div>
                       {#if item.is_encoded}
-                        <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#00E5FF]/20 text-[#00E5FF] border border-[#00E5FF]/40">
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
                           ✓ ENCODED
                         </span>
                       {:else}
-                        <span class="px-2 py-0.5 rounded text-[10px] font-mono text-gray-400 bg-white/5 border border-[#2C2C2E]">
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono text-slate-700 dark:text-slate-300 bg-slate-200/60 dark:bg-white/5 border border-slate-300/60 dark:border-white/10">
                           RAW SOURCE
                         </span>
                       {/if}
@@ -481,7 +494,7 @@
                     {#if !item.is_moved}
                       <button
                         onclick={() => handleAutoOrganizeSingle(item)}
-                        class="px-2.5 py-1 rounded-lg bg-[#00E5FF]/20 hover:bg-[#00E5FF]/30 text-[#00E5FF] border border-[#00E5FF]/40 text-xs transition-colors cursor-pointer"
+                        class="btn-expressive px-3 py-1 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-400/40 text-xs transition-colors cursor-pointer"
                         title="Auto organize file into destination folder"
                       >
                         ⚡ Auto Move
@@ -490,16 +503,16 @@
 
                     <button
                       onclick={() => openEncodeModal(item)}
-                      class="px-2.5 py-1 rounded-lg bg-[#00E5FF]/20 hover:bg-[#00E5FF]/30 text-[#00E5FF] border border-[#00E5FF]/40 text-xs transition-colors cursor-pointer flex items-center gap-1"
+                      class="btn-expressive px-3 py-1 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 text-xs transition-colors cursor-pointer flex items-center gap-1"
                       title="Encode / transcode file with FFmpeg"
                     >
-                      <span>⚡</span>
+                      <Film class="w-3.5 h-3.5" />
                       <span>Encode...</span>
                     </button>
 
                     <button
                       onclick={() => openMoveModal(item)}
-                      class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 border border-[#2C2C2E] text-xs transition-colors cursor-pointer"
+                      class="btn-expressive px-3 py-1 rounded-xl glass-pill text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-xs transition-colors cursor-pointer"
                       title="Move or rename file manually"
                     >
                       Move...
@@ -507,10 +520,10 @@
 
                     <button
                       onclick={() => handleDelete(item)}
-                      class="p-1 rounded-lg bg-white/5 hover:bg-[#FF453A]/20 text-gray-400 hover:text-[#FF453A] border border-[#2C2C2E] transition-colors cursor-pointer"
+                      class="btn-expressive p-1.5 rounded-xl glass-pill text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/30 transition-colors cursor-pointer"
                       title="Untrack file"
                     >
-                      ✕
+                      <Trash2 class="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </td>
@@ -525,61 +538,59 @@
 
 <!-- Manual Move / Rename Modal -->
 {#if isMoveModalOpen && selectedFile}
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-    <div class="bg-[#1E1E1E] border border-[#2C2C2E] rounded-2xl p-6 max-w-xl w-full shadow-2xl relative space-y-4">
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl animate-fade-in">
+    <div class="glass-panel-elevated rounded-3xl p-6 max-w-xl w-full shadow-2xl relative space-y-4 border border-slate-200/80 dark:border-white/15 animate-scale-in">
       <div class="flex justify-between items-center">
-        <h3 class="text-lg font-bold text-white flex items-center gap-2">
-          <svg class="w-5 h-5 text-[#00E5FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-          </svg>
-          Move or Rename Media File
+        <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <Move class="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+          <span>Move or Rename Media File</span>
         </h3>
         <button
           onclick={() => (isMoveModalOpen = false)}
-          class="text-gray-400 hover:text-white cursor-pointer"
+          class="btn-expressive p-2 rounded-full glass-pill text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
         >
-          ✕
+          <X class="w-4 h-4" />
         </button>
       </div>
 
       <form onsubmit={handleCustomMove} class="space-y-4 text-xs font-mono">
-        <div>
-          <label for="current-path" class="block text-gray-400 mb-1">SOURCE PATH</label>
+        <div class="space-y-1.5">
+          <label for="current-path" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">SOURCE PATH</label>
           <input
             id="current-path"
             type="text"
             readonly
             value={selectedFile.current_path}
-            class="w-full bg-[#121212] border border-[#2C2C2E] rounded-lg px-3 py-2 text-gray-400 select-all"
+            class="glass-input w-full rounded-2xl px-3.5 py-2.5 text-slate-500 dark:text-slate-400 select-all"
           />
         </div>
 
-        <div>
-          <label for="target-dir" class="block text-gray-400 mb-1">DESTINATION DIRECTORY</label>
+        <div class="space-y-1.5">
+          <label for="target-dir" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">DESTINATION DIRECTORY</label>
           <input
             id="target-dir"
             type="text"
             required
             bind:value={customTargetDir}
             placeholder="e.g. /data/library/Anime/Dragon Ball Super/Season 01"
-            class="w-full bg-[#121212] border border-[#2C2C2E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#00E5FF]"
+            class="glass-input w-full rounded-2xl px-3.5 py-2.5"
           />
         </div>
 
-        <div>
-          <label for="new-filename" class="block text-gray-400 mb-1">NEW FILENAME</label>
+        <div class="space-y-1.5">
+          <label for="new-filename" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">NEW FILENAME</label>
           <input
             id="new-filename"
             type="text"
             required
             bind:value={customFilename}
             placeholder="e.g. Dragon Ball Super - S01E07 [1080p].mkv"
-            class="w-full bg-[#121212] border border-[#2C2C2E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#00E5FF]"
+            class="glass-input w-full rounded-2xl px-3.5 py-2.5"
           />
         </div>
 
         {#if moveError}
-          <div class="p-3 bg-[#FF453A]/10 border border-[#FF453A]/30 rounded-lg text-[#FF453A]">
+          <div class="p-3 bg-rose-500/10 border border-rose-500/40 rounded-xl text-rose-600 dark:text-rose-300">
             {moveError}
           </div>
         {/if}
@@ -588,20 +599,21 @@
           <button
             type="button"
             onclick={() => (isMoveModalOpen = false)}
-            class="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 cursor-pointer"
+            class="btn-expressive px-4 py-2 rounded-2xl glass-pill text-slate-700 dark:text-slate-300 cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isMoving || !customTargetDir.trim() || !customFilename.trim()}
-            class="px-5 py-2 rounded-lg bg-[#00E5FF] hover:bg-[#00E5FF]/90 text-black font-semibold transition-all disabled:opacity-50 cursor-pointer flex items-center gap-2"
+            class="btn-expressive px-5 py-2.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-400 hover:to-sky-400 text-white font-bold transition-all disabled:opacity-40 cursor-pointer flex items-center gap-2 shadow-[0_0_15px_rgba(0,229,255,0.25)]"
           >
             {#if isMoving}
-              <span class="inline-block animate-spin w-3 h-3 border-2 border-black border-t-transparent rounded-full"></span>
-              Moving...
+              <span class="inline-block animate-spin w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span>
+              <span>Moving...</span>
             {:else}
-              Execute Move
+              <Move class="w-4 h-4 stroke-[2.5]" />
+              <span>Execute Move</span>
             {/if}
           </button>
         </div>
@@ -612,29 +624,30 @@
 
 <!-- Encode File Modal -->
 {#if isEncodeModalOpen && encodeTargetFile}
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-    <div class="bg-[#1E1E1E] border border-[#2C2C2E] rounded-2xl p-6 max-w-xl w-full shadow-2xl relative space-y-4">
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl animate-fade-in">
+    <div class="glass-panel-elevated rounded-3xl p-6 max-w-xl w-full shadow-2xl relative space-y-4 border border-slate-200/80 dark:border-white/15 animate-scale-in">
       <div class="flex justify-between items-center">
-        <h3 class="text-lg font-bold text-white flex items-center gap-2">
-          <svg class="w-5 h-5 text-[#00E5FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-          </svg>
-          Encode Media File
+        <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <Film class="w-5 h-5 text-purple-600 dark:text-purple-400" />
+          <span>Encode Media File</span>
         </h3>
         <button
           onclick={() => (isEncodeModalOpen = false)}
-          class="text-gray-400 hover:text-white cursor-pointer"
+          class="btn-expressive p-2 rounded-full glass-pill text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
         >
-          ✕
+          <X class="w-4 h-4" />
         </button>
       </div>
 
       {#if encodeSuccess}
-        <div class="p-3 bg-[#32D74B]/20 border border-[#32D74B]/40 rounded-xl text-xs font-mono text-[#32D74B] flex items-center justify-between">
-          <span>✓ {encodeSuccess}</span>
+        <div class="p-3 bg-emerald-500/10 border border-emerald-500/40 rounded-2xl text-xs font-mono text-emerald-600 dark:text-emerald-300 flex items-center justify-between">
+          <span class="flex items-center gap-1.5">
+            <Check class="w-4 h-4" />
+            <span>{encodeSuccess}</span>
+          </span>
           <a
             href="/encoder"
-            class="underline font-bold hover:text-white ml-2"
+            class="underline font-bold text-cyan-600 dark:text-cyan-300 ml-2"
           >
             View in Transcoder →
           </a>
@@ -642,37 +655,37 @@
       {/if}
 
       {#if encodeError}
-        <div class="p-3 bg-[#FF453A]/20 border border-[#FF453A]/40 rounded-xl text-xs font-mono text-[#FF453A]">
+        <div class="p-3 bg-rose-500/10 border border-rose-500/40 rounded-2xl text-xs font-mono text-rose-600 dark:text-rose-300">
           {encodeError}
         </div>
       {/if}
 
       <form onsubmit={handleQueueEncode} class="space-y-4 text-xs font-mono">
-        <div>
-          <label for="encode-source-path" class="block text-gray-400 mb-1">SOURCE FILE</label>
+        <div class="space-y-1.5">
+          <label for="encode-source-path" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">SOURCE FILE</label>
           <input
             id="encode-source-path"
             type="text"
             readonly
             value={encodeTargetFile.current_path}
-            class="w-full bg-[#121212] border border-[#2C2C2E] rounded-lg px-3 py-2 text-gray-400 select-all"
+            class="glass-input w-full rounded-2xl px-3.5 py-2.5 text-slate-500 dark:text-slate-400 select-all"
           />
-          <div class="flex items-center gap-2 mt-1.5 text-[11px] text-gray-500">
-            <span>Size: <strong class="text-white">{formatBytes(encodeTargetFile.file_size_bytes)}</strong></span>
+          <div class="flex items-center gap-2 mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+            <span>Size: <strong class="text-slate-800 dark:text-white">{formatBytes(encodeTargetFile.file_size_bytes)}</strong></span>
             <span>•</span>
-            <span>Resolution: <strong class="text-white">{encodeTargetFile.resolution || 'Original'}</strong></span>
+            <span>Resolution: <strong class="text-slate-800 dark:text-white">{encodeTargetFile.resolution || 'Original'}</strong></span>
           </div>
         </div>
 
-        <div>
-          <label for="encode-preset" class="block text-gray-400 mb-1">ENCODING PRESET</label>
+        <div class="space-y-1.5">
+          <label for="encode-preset" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">ENCODING PRESET</label>
           <select
             id="encode-preset"
             bind:value={selectedPresetId}
-            class="w-full bg-[#121212] border border-[#2C2C2E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#00E5FF]"
+            class="glass-input w-full rounded-2xl px-3.5 py-2.5"
           >
             {#each presets as preset (preset.id)}
-              <option value={preset.id}>
+              <option value={preset.id} class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
                 {preset.name} {preset.is_default ? '(Default)' : ''}
               </option>
             {/each}
@@ -680,51 +693,49 @@
         </div>
 
         {#if selectedPreset}
-          <div class="p-3 rounded-xl bg-[#121212] border border-[#2C2C2E] space-y-2 text-[11px]">
-            <div class="text-gray-400 font-semibold">{selectedPreset.description || selectedPreset.name}</div>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-gray-300">
-              <div><span class="text-gray-500">Video:</span> {selectedPreset.video_codec}</div>
-              <div><span class="text-gray-500">CRF:</span> {selectedPreset.crf}</div>
-              <div><span class="text-gray-500">Speed:</span> {selectedPreset.preset}</div>
-              <div><span class="text-gray-500">Scale:</span> {selectedPreset.target_resolution || 'Original'}</div>
-              <div><span class="text-gray-500">Audio:</span> {selectedPreset.audio_codec}</div>
-              <div><span class="text-gray-500">Format:</span> {selectedPreset.container}</div>
+          <div class="p-4 rounded-2xl glass-panel border border-slate-200/60 dark:border-white/5 space-y-2 text-[11px]">
+            <div class="text-slate-800 dark:text-slate-300 font-semibold">{selectedPreset.description || selectedPreset.name}</div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-slate-500 dark:text-slate-400">
+              <div><span class="text-slate-400 dark:text-slate-500">Video:</span> <strong class="text-slate-800 dark:text-white">{selectedPreset.video_codec}</strong></div>
+              <div><span class="text-slate-400 dark:text-slate-500">CRF:</span> <strong class="text-slate-800 dark:text-white">{selectedPreset.crf}</strong></div>
+              <div><span class="text-slate-400 dark:text-slate-500">Speed:</span> <strong class="text-slate-800 dark:text-white">{selectedPreset.preset}</strong></div>
+              <div><span class="text-slate-400 dark:text-slate-500">Scale:</span> <strong class="text-slate-800 dark:text-white">{selectedPreset.target_resolution || 'Original'}</strong></div>
+              <div><span class="text-slate-400 dark:text-slate-500">Audio:</span> <strong class="text-slate-800 dark:text-white">{selectedPreset.audio_codec}</strong></div>
+              <div><span class="text-slate-400 dark:text-slate-500">Container:</span> <strong class="text-slate-800 dark:text-white">{selectedPreset.container}</strong></div>
             </div>
           </div>
         {/if}
 
-        <div>
-          <label for="encode-target-path" class="block text-gray-400 mb-1">DESTINATION PATH (OPTIONAL)</label>
+        <div class="space-y-1.5">
+          <label for="encode-target-path" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">DESTINATION PATH (OPTIONAL)</label>
           <input
             id="encode-target-path"
             type="text"
             bind:value={customTargetFilePath}
             placeholder="Leave default or specify custom output path..."
-            class="w-full bg-[#121212] border border-[#2C2C2E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#00E5FF]"
+            class="glass-input w-full rounded-2xl px-3.5 py-2.5"
           />
-          <p class="text-[10px] text-gray-500 mt-1">
-            Default output will be stored in your configured transcoding directory.
-          </p>
         </div>
 
         <div class="flex justify-end gap-3 pt-2">
           <button
             type="button"
             onclick={() => (isEncodeModalOpen = false)}
-            class="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg cursor-pointer"
+            class="btn-expressive px-4 py-2 glass-pill text-slate-700 dark:text-slate-300 rounded-2xl cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isEncoding || !selectedPresetId}
-            class="px-4 py-2 bg-[#00E5FF] hover:bg-[#00c8e0] text-[#121212] font-bold rounded-lg transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2"
+            class="btn-expressive px-5 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-bold rounded-2xl transition-all cursor-pointer disabled:opacity-40 flex items-center gap-2 shadow-[0_0_15px_rgba(168,85,247,0.3)]"
           >
             {#if isEncoding}
-              <span class="inline-block animate-spin w-3 h-3 border-2 border-black border-t-transparent rounded-full"></span>
-              Queueing...
+              <span class="inline-block animate-spin w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span>
+              <span>Queueing...</span>
             {:else}
-              ⚡ Queue Encode Job
+              <Zap class="w-4 h-4" />
+              <span>Queue Encode Job</span>
             {/if}
           </button>
         </div>
