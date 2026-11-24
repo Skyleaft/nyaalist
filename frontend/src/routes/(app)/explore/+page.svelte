@@ -23,12 +23,23 @@
     ArrowUpDown,
     CheckCircle2,
     Sparkles,
-    AlertCircle
+    AlertCircle,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight,
+    ArrowUp
   } from 'lucide-svelte';
 
   let releases = $state<NyaaRelease[]>([]);
   let loading = $state<boolean>(true);
   let error = $state<string | null>(null);
+
+  // Scroll & Pagination UX
+  let scrollY = $state<number>(0);
+  let tableTopRef = $state<HTMLElement | null>(null);
+  let jumpPageInput = $state<string>('');
+  let isPageChanging = $state<boolean>(false);
 
   // Filters
   let category = $state<string>('1_2');
@@ -122,23 +133,49 @@
     }
   }
 
+  async function goToPage(targetPage: number) {
+    if (targetPage < 1 || loading) return;
+    page = targetPage;
+    isPageChanging = true;
+
+    // Smoothly scroll to the top of the releases table
+    if (tableTopRef) {
+      const yOffset = -75; // Account for the sticky floating header
+      const y = tableTopRef.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    }
+
+    await loadReleases();
+    isPageChanging = false;
+  }
+
+  function handleJumpPageSubmit(e: Event) {
+    e.preventDefault();
+    const p = parseInt(jumpPageInput.trim(), 10);
+    if (!isNaN(p) && p >= 1) {
+      jumpPageInput = '';
+      goToPage(p);
+    }
+  }
+
+  function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   function handleFilterSubmit(e: Event) {
     e.preventDefault();
-    page = 1;
-    loadReleases();
+    goToPage(1);
   }
 
   function toggleDateSort() {
     sortOrder = sortOrder === 'desc' ? 'asc' : 'desc';
-    page = 1;
-    loadReleases();
+    goToPage(1);
   }
 
   function filterByUploader(uploaderName?: string) {
     if (!uploaderName) return;
     userQuery = uploaderName;
-    page = 1;
-    loadReleases();
+    goToPage(1);
   }
 
   function formatDate(dateStr: string): string {
@@ -174,8 +211,7 @@
 
   function clearUserFilter() {
     userQuery = '';
-    page = 1;
-    loadReleases();
+    goToPage(1);
   }
 
   function copyMagnet(release: NyaaRelease) {
@@ -290,6 +326,25 @@
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape' && selectedRelease) {
       closeModal();
+      return;
+    }
+
+    // Ignore keyboard shortcuts if modal is open or user is typing in an input
+    if (selectedRelease) return;
+    const activeEl = document.activeElement;
+    if (
+      activeEl &&
+      (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT')
+    ) {
+      return;
+    }
+
+    if (e.key === 'ArrowRight' && !loading && releases.length > 0) {
+      goToPage(page + 1);
+    } else if (e.key === 'ArrowLeft' && !loading && page > 1) {
+      goToPage(page - 1);
+    } else if (e.key === 'Home') {
+      scrollToTop();
     }
   }
 
@@ -329,7 +384,7 @@
   });
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} bind:scrollY={scrollY} />
 
 <svelte:head>
   <title>Nyaa Explorer & AniList Sync - Nyaalist</title>
@@ -458,30 +513,35 @@
   {/if}
 
   <!-- Releases Data Table -->
-  <div class="glass-panel rounded-3xl overflow-hidden shadow-2xl border border-white/10">
+  <div bind:this={tableTopRef} class="glass-panel rounded-3xl overflow-hidden shadow-2xl border border-slate-200/80 dark:border-white/10">
+    <!-- Active Loading Shimmer Bar -->
+    {#if loading}
+      <div class="h-0.5 w-full bg-gradient-to-r from-cyan-400 via-sky-400 to-indigo-500 animate-pulse"></div>
+    {/if}
+
     <div class="overflow-x-auto">
       <table class="w-full text-left text-sm border-collapse">
         <thead class="bg-slate-100/90 dark:bg-slate-950/70 border-b border-slate-200/80 dark:border-white/10 text-[11px] font-mono text-slate-600 dark:text-slate-300 uppercase tracking-wider backdrop-blur-md">
           <tr>
-            <th class="py-3.5 px-4 w-14">Cover</th>
-            <th class="py-3.5 px-4">Release Title & Technical Tags</th>
-            <th class="py-3.5 px-4 w-48">AniList Match</th>
+            <th class="py-3.5 px-4 w-14 font-semibold">Cover</th>
+            <th class="py-3.5 px-4 font-semibold">Release Title & Technical Tags</th>
+            <th class="py-3.5 px-4 w-48 font-semibold">AniList Match</th>
             <th
-              class="py-3.5 px-4 w-32 cursor-pointer select-none hover:text-slate-900 dark:hover:text-white transition-colors"
+              class="py-3.5 px-4 w-32 cursor-pointer select-none hover:text-slate-900 dark:hover:text-white transition-colors font-semibold"
               onclick={toggleDateSort}
               title="Click to sort by date ({sortOrder === 'desc' ? 'Newest first' : 'Oldest first'})"
             >
               <div class="flex items-center gap-1.5">
                 <span>Date</span>
-                <span class="text-cyan-400 font-bold text-xs">{sortOrder === 'desc' ? '↓' : '↑'}</span>
+                <span class="text-cyan-500 dark:text-cyan-400 font-bold text-xs">{sortOrder === 'desc' ? '↓' : '↑'}</span>
               </div>
             </th>
-            <th class="py-3.5 px-4 w-24">Size</th>
-            <th class="py-3.5 px-4 w-24">S / L</th>
-            <th class="py-3.5 px-4 w-44 text-right">Actions</th>
+            <th class="py-3.5 px-4 w-24 font-semibold">Size</th>
+            <th class="py-3.5 px-4 w-24 font-semibold">S / L</th>
+            <th class="py-3.5 px-4 w-44 text-right font-semibold">Actions</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-white/5">
+        <tbody class="divide-y divide-slate-200/60 dark:divide-white/5 transition-opacity duration-200 {loading && isPageChanging ? 'opacity-40 pointer-events-none' : 'opacity-100'}">
           {#if loading && releases.length === 0}
             <tr>
               <td colspan="7" class="py-16 text-center text-slate-500 dark:text-slate-400 font-mono text-xs">
@@ -695,30 +755,104 @@
       </table>
     </div>
 
-    <!-- Pagination -->
-    <div class="bg-slate-100/80 dark:bg-slate-950/60 border-t border-slate-200/80 dark:border-white/5 px-5 py-3.5 flex items-center justify-between text-xs font-mono backdrop-blur-md">
-      <span class="text-slate-500 dark:text-slate-400">
-        Page <span class="text-cyan-600 dark:text-cyan-300 font-bold">{page}</span>
-      </span>
-      <div class="flex items-center gap-2">
+    <!-- Enhanced Bottom Pagination -->
+    <div class="bg-slate-100/90 dark:bg-slate-950/70 border-t border-slate-200/80 dark:border-white/5 px-5 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono backdrop-blur-md">
+      <div class="flex items-center gap-3 flex-wrap">
+        <span class="text-slate-600 dark:text-slate-400">
+          Page <strong class="text-cyan-600 dark:text-cyan-300 font-bold">{page}</strong>
+          {#if releases.length > 0}
+            <span class="text-slate-400 dark:text-slate-500 font-normal">({releases.length} results)</span>
+          {/if}
+        </span>
+
+        <!-- Quick Jump to Page Form -->
+        <form onsubmit={handleJumpPageSubmit} class="flex items-center gap-1.5">
+          <label for="jump-page-bottom" class="text-slate-500 dark:text-slate-400 text-[11px] hidden md:inline">Go to:</label>
+          <input
+            id="jump-page-bottom"
+            type="number"
+            min="1"
+            placeholder="#"
+            bind:value={jumpPageInput}
+            class="glass-input w-14 rounded-xl px-2 py-1 text-center text-xs font-mono"
+          />
+          <button
+            type="submit"
+            disabled={!jumpPageInput || loading}
+            class="btn-expressive px-2.5 py-1 rounded-xl glass-pill text-[11px] text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer"
+          >
+            Go
+          </button>
+        </form>
+      </div>
+
+      <!-- Navigation Action Buttons -->
+      <div class="flex items-center gap-1.5 sm:gap-2">
         <button
-          onclick={() => { if (page > 1) { page -= 1; loadReleases(); } }}
+          type="button"
+          onclick={() => goToPage(1)}
           disabled={page <= 1 || loading}
-          class="btn-expressive px-3.5 py-1.5 glass-pill rounded-xl text-slate-700 dark:text-white disabled:opacity-40 cursor-pointer"
+          class="btn-expressive px-3 py-1.5 glass-pill rounded-xl text-slate-700 dark:text-white disabled:opacity-40 cursor-pointer flex items-center gap-1"
+          title="First Page"
         >
-          Previous
+          <ChevronsLeft class="w-3.5 h-3.5" />
+          <span class="hidden md:inline">First</span>
         </button>
+
         <button
-          onclick={() => { page += 1; loadReleases(); }}
-          disabled={loading || releases.length === 0}
-          class="btn-expressive px-3.5 py-1.5 glass-pill rounded-xl text-slate-700 dark:text-white disabled:opacity-40 cursor-pointer"
+          type="button"
+          onclick={() => goToPage(page - 1)}
+          disabled={page <= 1 || loading}
+          class="btn-expressive px-3.5 py-1.5 glass-pill rounded-xl text-slate-700 dark:text-white disabled:opacity-40 cursor-pointer flex items-center gap-1.5"
+          title="Previous page (Left Arrow)"
         >
-          Next
+          <ChevronLeft class="w-3.5 h-3.5" />
+          <span>Previous</span>
+        </button>
+
+        <!-- Current Page Pill -->
+        <span class="px-3.5 py-1.5 rounded-xl bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-400/30 font-bold shadow-[0_0_12px_rgba(0,229,255,0.2)]">
+          {page}
+        </span>
+
+        <button
+          type="button"
+          onclick={() => goToPage(page + 1)}
+          disabled={loading || releases.length === 0}
+          class="btn-expressive px-3.5 py-1.5 glass-pill rounded-xl text-slate-700 dark:text-white disabled:opacity-40 cursor-pointer flex items-center gap-1.5"
+          title="Next page (Right Arrow)"
+        >
+          {#if loading && isPageChanging}
+            <span class="inline-block animate-spin w-3 h-3 border border-cyan-400 border-t-transparent rounded-full"></span>
+            <span>Loading...</span>
+          {:else}
+            <span>Next</span>
+            <ChevronRight class="w-3.5 h-3.5" />
+          {/if}
         </button>
       </div>
     </div>
   </div>
 </div>
+
+<!-- Floating "Back to Top" Action Button -->
+{#if scrollY > 400}
+  <div class="fixed bottom-6 right-6 z-40 animate-fade-in">
+    <button
+      type="button"
+      onclick={scrollToTop}
+      class="glass-panel-elevated px-3.5 py-2.5 rounded-full text-slate-700 dark:text-slate-200 hover:text-cyan-600 dark:hover:text-cyan-300 hover:border-cyan-400/40 shadow-2xl hover:shadow-[0_0_20px_rgba(0,229,255,0.3)] transition-all cursor-pointer flex items-center gap-2 btn-expressive group border border-slate-200/90 dark:border-white/15"
+      title="Scroll back to top (Home key)"
+      aria-label="Back to top"
+    >
+      <ArrowUp class="w-4 h-4 group-hover:-translate-y-0.5 transition-transform text-cyan-600 dark:text-cyan-400" />
+      <span class="text-xs font-mono font-semibold hidden sm:inline">Top</span>
+      <span class="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-400/25 font-bold">
+        P.{page}
+      </span>
+    </button>
+  </div>
+{/if}
 
 <!-- Scraped Item Detail Modal (Material 3 Expressive Glass Modal) -->
 {#if selectedRelease}
