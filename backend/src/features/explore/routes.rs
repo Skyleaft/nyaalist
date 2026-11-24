@@ -10,6 +10,7 @@ use crate::core::error::AppError;
 use crate::core::state::AppState;
 use crate::features::explore::models::{AnimeMetadata, ExploreQuery, NyaaRelease, SyncRequest};
 use crate::features::explore::nyaa_scraper::{scrape_nyaa_category, scrape_nyaa_user};
+use crate::features::explore::title_parser::parse_release_title;
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -115,9 +116,17 @@ async fn sync_title_metadata(
     State(state): State<AppState>,
     Json(payload): Json<SyncRequest>,
 ) -> Result<Json<Option<AnimeMetadata>>, AppError> {
+    let raw = payload.title.trim();
+    let parsed = parse_release_title(raw);
+    let title_to_sync = if !parsed.anime_title.is_empty() {
+        &parsed.anime_title
+    } else {
+        raw
+    };
+
     let meta = state
         .anilist_client
-        .sync_anime_metadata(&state.db, &payload.title)
+        .sync_anime_metadata(&state.db, title_to_sync)
         .await?;
 
     Ok(Json(meta))

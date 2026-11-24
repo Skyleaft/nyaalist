@@ -30,19 +30,40 @@ static SOURCE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?i)\b(cr\s+webrip|webrip|web-dl|bdrip|bluray|hdtv|dvdrip)\b").expect("Valid regex")
 });
 
-static EPISODE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?:[\s_\-]|\b)(?:[eE][pP]?|#|-)?\s*(\d{1,4}(?:\.\d+)?)(?:\s*(?:v\d+)?\b)").expect("Valid regex")
+static EPISODE_PART_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)^(?:s(?:eason)?\s*\d{1,2}\s*(?:[-_ ]\s*)?)?(?:e(?:p(?:isode)?)?\.?|#|-)?\s*(\d{1,4}(?:\.\d+)?)(?:\s*v\d+)?$").expect("Valid regex")
+});
+
+static INLINE_EPISODE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)(?:[\s_\-]|\b)(?:s(?:eason)?\s*\d{1,2}\s*(?:[-_ ]\s*)?)?(?:e(?:p(?:isode)?)?\.?|#)\s*(\d{1,4}(?:\.\d+)?)(?:\s*v\d+)?(?:\b|$)").expect("Valid regex")
+});
+
+static TRAILING_EPISODE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?:[\s_\-])(\d{1,4}(?:\.\d+)?)(?:\s*v\d+)?$").expect("Valid regex")
+});
+
+static STRIP_TRAILING_TAGS: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)(\[[^\]]+\]|\([^\)]+\)|\.(mkv|mp4|avi|webm|mov|m4v|flv|ts))$").expect("Valid regex")
+});
+
+static SPACE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\s+").expect("Valid regex")
 });
 
 pub fn parse_release_title(raw_title: &str) -> ParsedRelease {
     let mut working_title = raw_title.trim().to_string();
 
-    // 1. Extract leading uploader/release group, e.g. [Erai-raws]
+    // 1. Extract leading uploader/release group, e.g. [Erai-raws], [Doomdos]
     let mut uploader = None;
     if let Some(caps) = UPLOADER_REGEX.captures(&working_title) {
         if let Some(m) = caps.get(1) {
             uploader = Some(m.as_str().trim().to_string());
-            working_title = working_title[caps.get(0).unwrap().end()..].trim().to_string();
+            working_title = working_title[caps.get(0).unwrap().end()..].to_string();
+            // Clean any leading separators following uploader, e.g. " - " or "_"
+            working_title = working_title
+                .trim_start_matches(|c: char| c == '-' || c == '_' || c == '|' || c == ':' || c.is_whitespace())
+                .trim()
+                .to_string();
         }
     }
 
@@ -86,13 +107,16 @@ pub fn parse_release_title(raw_title: &str) -> ParsedRelease {
     }
 
     // 3. Remove trailing bracket tags and file extensions from working_title
-    let strip_trailing_tags = Regex::new(r"(\[[^\]]+\]|\([^\)]+\)|\.mkv|\.mp4|\.avi)$").unwrap();
-    while let Some(m) = strip_trailing_tags.find(&working_title) {
+    while let Some(m) = STRIP_TRAILING_TAGS.find(&working_title) {
         working_title = working_title[..m.start()].trim().to_string();
     }
+    working_title = working_title
+        .trim_end_matches(|c: char| c == '-' || c == '_' || c == '|' || c == ':' || c.is_whitespace())
+        .trim()
+        .to_string();
 
     // 4. Extract Episode and Anime Title
-    // Common pattern: "<Title> - <Episode>"
+    // Common pattern: "<Title> - <Episode>" or "<Title> <Episode>"
     let mut anime_title = working_title.clone();
     let mut episode = None;
 
@@ -100,27 +124,44 @@ pub fn parse_release_title(raw_title: &str) -> ParsedRelease {
         let potential_title = working_title[..pos].trim();
         let potential_ep_part = working_title[pos + 3..].trim();
 
-        if let Some(ep_caps) = EPISODE_REGEX.captures(potential_ep_part) {
+        if let Some(ep_caps) = EPISODE_PART_REGEX.captures(potential_ep_part) {
             if let Some(ep_match) = ep_caps.get(1) {
                 episode = Some(ep_match.as_str().to_string());
                 anime_title = potential_title.to_string();
             }
         }
-    } else if let Some(caps) = EPISODE_REGEX.captures(&working_title) {
-        if let Some(ep_match) = caps.get(1) {
-            let ep_start = caps.get(0).unwrap().start();
-            let prefix = working_title[..ep_start].trim().trim_end_matches(['-', '_', ' ']);
-            if !prefix.is_empty() {
-                anime_title = prefix.to_string();
-                episode = Some(ep_match.as_str().to_string());
+    }
+
+    if episode.is_none() {
+        if let Some(caps) = INLINE_EPISODE_REGEX.captures(&working_title) {
+            if let Some(ep_match) = caps.get(1) {
+                let ep_start = caps.get(0).unwrap().start();
+                let prefix = working_title[..ep_start].trim().trim_end_matches(['-', '_', ' ']);
+                if !prefix.is_empty() {
+                    anime_title = prefix.to_string();
+                    episode = Some(ep_match.as_str().to_string());
+                }
+            }
+        } else if let Some(caps) = TRAILING_EPISODE_REGEX.captures(&working_title) {
+            if let Some(ep_match) = caps.get(1) {
+                let ep_start = caps.get(0).unwrap().start();
+                let prefix = working_title[..ep_start].trim().trim_end_matches(['-', '_', ' ']);
+                if !prefix.is_empty() {
+                    anime_title = prefix.to_string();
+                    episode = Some(ep_match.as_str().to_string());
+                }
             }
         }
     }
 
     // Final cleanup of Anime Title
+    anime_title = anime_title
+        .trim_start_matches(|c: char| c == '-' || c == '_' || c == '|' || c == ':' || c.is_whitespace())
+        .trim_end_matches(|c: char| c == '-' || c == '_' || c == '|' || c == ':' || c.is_whitespace())
+        .trim()
+        .to_string();
     anime_title = anime_title.replace('_', " ");
-    let space_regex = Regex::new(r"\s+").unwrap();
-    anime_title = space_regex.replace_all(&anime_title, " ").trim().to_string();
+    anime_title = SPACE_REGEX.replace_all(&anime_title, " ").trim().to_string();
 
     ParsedRelease {
         uploader,
@@ -160,5 +201,29 @@ mod tests {
         assert_eq!(parsed.episode.as_deref(), Some("93"));
         assert_eq!(parsed.resolution.as_deref(), Some("1080p"));
         assert_eq!(parsed.crc32.as_deref(), Some("CC2F9599"));
+    }
+
+    #[test]
+    fn test_parse_doomdos_tensei_goblin() {
+        let raw = "[Doomdos] - Tensei Goblin dakedo Shitsumon Aru - S01E08 [2160p IQ WEB-DL] [So What's Wrong with Getting Reborn as a Goblin_]";
+        let parsed = parse_release_title(raw);
+
+        assert_eq!(parsed.uploader.as_deref(), Some("Doomdos"));
+        assert_eq!(parsed.anime_title, "Tensei Goblin dakedo Shitsumon Aru");
+        assert_eq!(parsed.episode.as_deref(), Some("08"));
+        assert_eq!(parsed.resolution.as_deref(), Some("2160p"));
+        assert_eq!(parsed.source.as_deref(), Some("WEB-DL"));
+    }
+
+    #[test]
+    fn test_parse_doomdos_seitokai() {
+        let raw = "[Doomdos] - Seitokai ni mo Ana wa Aru! - S01E08 [2160p IQ WEB-DL]";
+        let parsed = parse_release_title(raw);
+
+        assert_eq!(parsed.uploader.as_deref(), Some("Doomdos"));
+        assert_eq!(parsed.anime_title, "Seitokai ni mo Ana wa Aru!");
+        assert_eq!(parsed.episode.as_deref(), Some("08"));
+        assert_eq!(parsed.resolution.as_deref(), Some("2160p"));
+        assert_eq!(parsed.source.as_deref(), Some("WEB-DL"));
     }
 }
