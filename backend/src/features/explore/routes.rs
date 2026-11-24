@@ -139,16 +139,31 @@ async fn serve_cover_image(
     let clean_filename = filename.replace("..", "").replace(['/', '\\'], "");
     let file_path = state.config.covers_dir.join(&clean_filename);
 
-    if !file_path.exists() {
-        return Err(AppError::NotFound("Cover image not found".into()));
-    }
+    let bytes = if file_path.exists() {
+        tokio::fs::read(&file_path)
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to read cover image: {}", e)))?
+    } else {
+        tracing::info!(
+            "Cover image '{}' not found on disk, redownloading from source...",
+            clean_filename
+        );
+        state
+            .anilist_client
+            .redownload_cover(&state.db, &clean_filename)
+            .await?
+    };
 
-    let bytes = tokio::fs::read(&file_path)
-        .await
-        .map_err(|e| AppError::Internal(format!("Failed to read cover image: {}", e)))?;
+    let content_type = if clean_filename.ends_with(".png") {
+        "image/png"
+    } else if clean_filename.ends_with(".webp") {
+        "image/webp"
+    } else {
+        "image/jpeg"
+    };
 
     let mut headers = HeaderMap::new();
-    headers.insert(header::CONTENT_TYPE, "image/jpeg".parse().unwrap());
+    headers.insert(header::CONTENT_TYPE, content_type.parse().unwrap());
     headers.insert(
         header::CACHE_CONTROL,
         "public, max-age=86400".parse().unwrap(),

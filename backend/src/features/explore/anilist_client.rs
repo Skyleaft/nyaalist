@@ -672,25 +672,336 @@ impl AniListClient {
         Ok(Some(record))
     }
 
-    async fn download_image(&self, url: &str, path: &Path) -> Result<(), AppError> {
+    /// Fetches anime metadata directly by AniList ID, caches it in DB, and downloads cover image
+    pub async fn sync_anime_by_id(
+        &self,
+        db: &PgPool,
+        id: i32,
+    ) -> Result<Option<AnimeMetadata>, AppError> {
+        // Rate limiter check
+        {
+            let mut rl = self.rate_limiter.lock().await;
+
+            if let Some(until) = rl.retry_after_until {
+                let now = Instant::now();
+                if now < until {
+                    let remaining = (until - now).as_secs();
+                    tracing::info!(
+                        "AniList client in 429 rate-limit backoff (remaining: {}s). Skipping ID query for {}",
+                        remaining,
+                        id
+                    );
+                    return Ok(None);
+                } else {
+                    rl.retry_after_until = None;
+                }
+            }
+
+            let elapsed = rl.last_request.elapsed();
+            if elapsed < rl.min_interval {
+                sleep(rl.min_interval - elapsed).await;
+            }
+            rl.last_request = Instant::now();
+        }
+
+        let query = r#"
+            query ($id: Int) {
+              Media(id: $id, type: ANIME) {
+                id
+                idMal
+                title {
+                  romaji
+                  english
+                  native
+                }
+                format
+                status
+                episodes
+                season
+                seasonYear
+                genres
+                averageScore
+                description
+                coverImage {
+                  extraLarge
+                  large
+                }
+                bannerImage
+              }
+            }
+        "#;
+
+        let payload = json!({
+            "query": query,
+            "variables": { "id": id }
+        });
+
+        let response = match self
+            .client
+            .post(&self.graphql_url)
+            .json(&payload)
+            .send()
+            .await
+        {
+            Ok(res) => res,
+            Err(e) => {
+                tracing::warn!("AniList GraphQL connection error for ID {}: {}", id, e);
+                return Ok(None);
+            }
+        };
+
+        if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            let retry_after_secs = response
+                .headers()
+                .get(reqwest::header::RETRY_AFTER)
+                .and_then(|val| val.to_str().ok())
+                .and_then(|s| s.parse::<u64>().ok())
+                .unwrap_or(60);
+
+            let backoff_until = Instant::now() + Duration::from_secs(retry_after_secs);
+            {
+                let mut rl = self.rate_limiter.lock().await;
+                rl.retry_after_until = Some(backoff_until);
+            }
+
+            tracing::warn!(
+                "AniList API returned 429 Too Many Requests. Backing off for {}s",
+                retry_after_secs
+            );
+            return Ok(None);
+        }
+
+        if !response.status().is_success() {
+            tracing::warn!(
+                "AniList API returned status {} for anime ID {}",
+                response.status(),
+                id
+            );
+            return Ok(None);
+        }
+
+        let body: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to parse AniList JSON: {}", e)))?;
+
+        let media = match body.pointer("/data/Media") {
+            Some(m) if !m.is_null() => m,
+            _ => return Ok(None),
+        };
+
+        let mal_id = media["idMal"].as_i64().map(|v| v as i32);
+        let title_romaji = media["title"]["romaji"]
+            .as_str()
+            .unwrap_or("")
+            .to_string();
+        let title_english = media["title"]["english"].as_str().map(|s| s.to_string());
+        let title_native = media["title"]["native"].as_str().map(|s| s.to_string());
+        let format = media["format"].as_str().map(|s| s.to_string());
+        let status = media["status"].as_str().map(|s| s.to_string());
+        let episodes = media["episodes"].as_i64().map(|v| v as i32);
+        let season = media["season"].as_str().map(|s| s.to_string());
+        let season_year = media["seasonYear"].as_i64().map(|v| v as i32);
+        let genres: Vec<String> = media["genres"]
+            .as_array()
+            .map(|arr| arr.iter().filter_map(|g| g.as_str().map(|s| s.to_string())).collect())
+            .unwrap_or_default();
+        let average_score = media["averageScore"].as_i64().map(|v| v as i32);
+        let description = media["description"].as_str().map(|s| s.to_string());
+        let cover_url = media["coverImage"]["large"]
+            .as_str()
+            .or_else(|| media["coverImage"]["extraLarge"].as_str())
+            .map(|s| s.to_string());
+        let banner_url = media["bannerImage"].as_str().map(|s| s.to_string());
+
+        let filename = format!("{}.jpg", id);
+        let full_path = self.covers_dir.join(&filename);
+        let local_cover_path = if let Some(ref c_url) = cover_url {
+            if !full_path.exists() {
+                if let Err(e) = self.download_image(c_url, &full_path).await {
+                    tracing::warn!("Failed to download cover image for anime {}: {}", id, e);
+                }
+            }
+            Some(format!("/api/covers/{}", filename))
+        } else {
+            None
+        };
+
+        let record = sqlx::query_as::<_, AnimeMetadata>(
+            r#"
+            INSERT INTO anime_metadata (
+                id, mal_id, title_romaji, title_english, title_native,
+                format, status, episodes, season, season_year,
+                genres, average_score, description, cover_image_url,
+                cover_image_local_path, banner_image_url, last_synced_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+            ON CONFLICT (id) DO UPDATE SET
+                title_romaji = EXCLUDED.title_romaji,
+                title_english = EXCLUDED.title_english,
+                average_score = EXCLUDED.average_score,
+                cover_image_url = COALESCE(EXCLUDED.cover_image_url, anime_metadata.cover_image_url),
+                cover_image_local_path = COALESCE(EXCLUDED.cover_image_local_path, anime_metadata.cover_image_local_path),
+                last_synced_at = EXCLUDED.last_synced_at
+            RETURNING *
+            "#,
+        )
+        .bind(id)
+        .bind(mal_id)
+        .bind(&title_romaji)
+        .bind(&title_english)
+        .bind(&title_native)
+        .bind(&format)
+        .bind(&status)
+        .bind(episodes)
+        .bind(&season)
+        .bind(season_year)
+        .bind(&genres)
+        .bind(average_score)
+        .bind(&description)
+        .bind(&cover_url)
+        .bind(&local_cover_path)
+        .bind(&banner_url)
+        .bind(Utc::now())
+        .fetch_one(db)
+        .await?;
+
+        Ok(Some(record))
+    }
+
+    /// Redownloads a cover image from its source (DB cached URL or AniList API)
+    /// when the local cover file does not exist.
+    pub async fn redownload_cover(&self, db: &PgPool, filename: &str) -> Result<Vec<u8>, AppError> {
+        let clean_filename = filename.replace("..", "").replace(['/', '\\'], "");
+        let file_path = self.covers_dir.join(&clean_filename);
+
+        if file_path.exists() {
+            if let Ok(bytes) = tokio::fs::read(&file_path).await {
+                return Ok(bytes);
+            }
+        }
+
+        let id_opt = Path::new(&clean_filename)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .and_then(|s| s.parse::<i32>().ok())
+            .or_else(|| {
+                clean_filename
+                    .chars()
+                    .take_while(|c| c.is_ascii_digit())
+                    .collect::<String>()
+                    .parse::<i32>()
+                    .ok()
+            });
+
+        // 1. Check if cover_image_url is in anime_metadata by ID
+        let mut cover_url: Option<String> = None;
+        if let Some(id) = id_opt {
+            let row: Option<(Option<String>,)> = sqlx::query_as(
+                "SELECT cover_image_url FROM anime_metadata WHERE id = $1",
+            )
+            .bind(id)
+            .fetch_optional(db)
+            .await
+            .unwrap_or(None);
+
+            if let Some((url,)) = row {
+                cover_url = url;
+            }
+        }
+
+        // 2. If not found by ID, check by cover_image_local_path
+        if cover_url.is_none() {
+            let row: Option<(Option<String>,)> = sqlx::query_as(
+                "SELECT cover_image_url FROM anime_metadata WHERE cover_image_local_path = $1 OR cover_image_local_path LIKE '%' || $1 LIMIT 1",
+            )
+            .bind(&clean_filename)
+            .fetch_optional(db)
+            .await
+            .unwrap_or(None);
+
+            if let Some((url,)) = row {
+                cover_url = url;
+            }
+        }
+
+        // 3. If cover_url was found, download it
+        if let Some(ref url) = cover_url {
+            if !url.trim().is_empty() {
+                match self.download_image(url, &file_path).await {
+                    Ok(bytes) => {
+                        if let Some(id) = id_opt {
+                            let _ = sqlx::query(
+                                "UPDATE anime_metadata SET cover_image_local_path = $1 WHERE id = $2 AND (cover_image_local_path IS NULL OR cover_image_local_path = '')",
+                            )
+                            .bind(format!("/api/covers/{}", clean_filename))
+                            .bind(id)
+                            .execute(db)
+                            .await;
+                        }
+                        return Ok(bytes);
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to download cover from known URL '{}': {}",
+                            url,
+                            e
+                        );
+                    }
+                }
+            }
+        }
+
+        // 4. If cover_url was not in DB (or download failed), and we have an AniList ID:
+        // Query AniList API directly by ID
+        if let Some(id) = id_opt {
+            if let Ok(Some(meta)) = self.sync_anime_by_id(db, id).await {
+                if file_path.exists() {
+                    if let Ok(bytes) = tokio::fs::read(&file_path).await {
+                        return Ok(bytes);
+                    }
+                }
+                if let Some(ref url) = meta.cover_image_url {
+                    if let Ok(bytes) = self.download_image(url, &file_path).await {
+                        return Ok(bytes);
+                    }
+                }
+            }
+        }
+
+        Err(AppError::NotFound("Cover image not found".into()))
+    }
+
+    pub async fn download_image(&self, url: &str, path: &Path) -> Result<Vec<u8>, AppError> {
         let res = self.client.get(url).send().await.map_err(|e| {
             AppError::Internal(format!("Failed to download image from {}: {}", url, e))
         })?;
 
         if !res.status().is_success() {
-            return Err(AppError::Internal(format!(
-                "Failed to download image, status: {}",
+            return Err(AppError::NotFound(format!(
+                "Failed to download image from {}, status: {}",
+                url,
                 res.status()
             )));
         }
 
         let bytes = res.bytes().await.map_err(|e| {
             AppError::Internal(format!("Failed to read image bytes: {}", e))
-        })?;
+        })?.to_vec();
 
-        tokio::fs::create_dir_all(path.parent().unwrap_or(Path::new("."))).await?;
-        tokio::fs::write(path, bytes).await?;
+        if let Some(parent) = path.parent() {
+            let _ = tokio::fs::create_dir_all(parent).await;
+        }
 
-        Ok(())
+        let tmp_path = path.with_extension(format!("tmp.{}", uuid::Uuid::new_v4()));
+        if let Ok(()) = tokio::fs::write(&tmp_path, &bytes).await {
+            if let Err(_e) = tokio::fs::rename(&tmp_path, path).await {
+                let _ = tokio::fs::remove_file(&tmp_path).await;
+                let _ = tokio::fs::write(path, &bytes).await;
+            }
+        } else {
+            let _ = tokio::fs::write(path, &bytes).await;
+        }
+
+        Ok(bytes)
     }
 }
