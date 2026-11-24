@@ -3,6 +3,8 @@ import type {
   AuthSuccessResponse,
   LoginRequest,
   NyaaRelease,
+  NyaaReleaseDetail,
+  NyaaFileItem,
   AnimeMetadata,
   SetupRequest,
   UserResponse,
@@ -101,6 +103,8 @@ export const api = {
       if (params?.order) sp.set('order', params.order);
       return request<NyaaRelease[]>(`/explore/user/${encodeURIComponent(username)}?${sp.toString()}`);
     },
+    getView: (id: number) => request<NyaaReleaseDetail>(`/explore/view/${id}`),
+    getDetail: (id: number) => request<NyaaReleaseDetail>(`/explore/view/${id}`),
     syncMetadata: (title: string, nyaa_id?: number) =>
       request<AnimeMetadata | null>('/explore/sync', {
         method: 'POST',

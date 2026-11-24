@@ -39,7 +39,7 @@ jsonwebtoken = "9.3"
 axum-extra = { version = "0.9", features = ["cookie"] }
 
 # HTTP Client, Scraping & Regex
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip"] }
 scraper = "0.20"
 regex = "1.10"
 

@@ -60,6 +60,38 @@ impl From<crate::entities::anime_metadata::Model> for AnimeMetadata {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NyaaFileItem {
+    pub name: String,
+    pub size_formatted: Option<String>,
+    pub size_bytes: Option<i64>,
+    pub is_folder: bool,
+    pub children: Vec<NyaaFileItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NyaaReleaseDetail {
+    pub id: i64,
+    pub title: String,
+    pub uploader: Option<String>,
+    pub uploader_url: Option<String>,
+    pub magnet_uri: String,
+    pub torrent_file_url: Option<String>,
+    pub category: String,
+    pub file_size_bytes: i64,
+    pub file_size_formatted: String,
+    pub seeders: i32,
+    pub leechers: i32,
+    pub completed_count: i32,
+    pub nyaa_created_at: DateTime<Utc>,
+    pub info_hash: Option<String>,
+    pub information: Option<String>,
+    pub description_markdown: Option<String>,
+    pub file_list: Vec<NyaaFileItem>,
+    pub parsed: ParsedRelease,
+    pub anilist_metadata: Option<AnimeMetadata>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NyaaRelease {
     pub id: i64,
     pub title: String,

@@ -74,6 +74,36 @@ export interface NyaaRelease {
   anilist_metadata?: AnimeMetadata | null;
 }
 
+export interface NyaaFileItem {
+  name: string;
+  size_formatted?: string | null;
+  size_bytes?: number | null;
+  is_folder: boolean;
+  children: NyaaFileItem[];
+}
+
+export interface NyaaReleaseDetail {
+  id: number;
+  title: string;
+  uploader?: string;
+  uploader_url?: string;
+  magnet_uri: string;
+  torrent_file_url?: string;
+  category: string;
+  file_size_bytes: number;
+  file_size_formatted: string;
+  seeders: number;
+  leechers: number;
+  completed_count: number;
+  nyaa_created_at: string;
+  info_hash?: string;
+  information?: string;
+  description_markdown?: string;
+  file_list: NyaaFileItem[];
+  parsed: ParsedRelease;
+  anilist_metadata?: AnimeMetadata | null;
+}
+
 export interface DownloadJob {
   id: string;
   nyaa_torrent_id: number | null;
