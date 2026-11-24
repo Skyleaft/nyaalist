@@ -2,6 +2,22 @@
   import { onMount } from 'svelte';
   import { encoder } from '#lib/stores/encoder.svelte';
   import type { EncodingJobItem, EncodingPreset } from '#lib/api/types';
+  import {
+    Film,
+    Cpu,
+    Clock,
+    Zap,
+    Plus,
+    Sliders,
+    Search,
+    X,
+    CheckCircle2,
+    Play,
+    Trash2,
+    Activity,
+    HardDrive,
+    AlertCircle
+  } from 'lucide-svelte';
 
   let filterStatus = $state<string>('ALL');
   let searchQuery = $state('');
@@ -33,7 +49,7 @@
   });
 
   const filteredJobs = $derived(
-    encoder.jobs.filter(job => {
+    encoder.jobs.filter((job: any) => {
       if (filterStatus !== 'ALL' && job.status !== filterStatus) return false;
       if (searchQuery.trim().length > 0) {
         const q = searchQuery.toLowerCase();
@@ -146,65 +162,71 @@
   <title>Video Encoder Telemetry | Nyaalist</title>
 </svelte:head>
 
-<div class="space-y-6">
-  <!-- Header & Action Buttons -->
-  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-    <div>
-      <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-3">
-        <svg class="w-7 h-7 text-[#00E5FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-        </svg>
-        FFmpeg Video Encoder
-      </h1>
-      <p class="text-xs text-gray-400 mt-1 font-mono">
-        Hardware-accelerated anime transcode pipeline with live telemetry streaming
-      </p>
+<div class="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
+  <!-- Header & Telemetry Actions -->
+  <div class="glass-panel rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-white/10">
+    <div class="flex items-center gap-4">
+      <div class="p-3.5 rounded-2xl bg-purple-500/10 text-purple-300 border border-purple-500/25 shadow-[0_0_20px_rgba(168,85,247,0.2)]">
+        <Film class="w-7 h-7" />
+      </div>
+      <div>
+        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+          FFmpeg Video Encoder
+        </h1>
+        <p class="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+          Hardware-accelerated anime transcode pipeline with live telemetry streaming
+        </p>
+      </div>
     </div>
 
     <div class="flex items-center gap-3">
-      <!-- WS Status -->
-      <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1E1E1E] border border-[#2C2C2E] text-xs font-mono">
-        <span class="w-2 h-2 rounded-full {encoder.wsConnected ? 'bg-[#32D74B] shadow-[0_0_8px_#32D74B]' : 'bg-[#FF453A]'}"></span>
-        <span class="{encoder.wsConnected ? 'text-[#32D74B]' : 'text-gray-400'}">
+      <!-- WS Status Pill -->
+      <div class="glass-pill px-3.5 py-2 rounded-2xl flex items-center gap-2 text-xs font-mono">
+        <div class="relative flex items-center justify-center">
+          <div class="w-2.5 h-2.5 rounded-full {encoder.wsConnected ? 'bg-emerald-400' : 'bg-rose-500'}"></div>
+          {#if encoder.wsConnected}
+            <div class="absolute w-4 h-4 rounded-full bg-emerald-400/30 animate-ping"></div>
+          {/if}
+        </div>
+        <span class="font-medium {encoder.wsConnected ? 'text-emerald-500 dark:text-emerald-300' : 'text-rose-500 dark:text-rose-400'}">
           {encoder.wsConnected ? 'WS LIVE' : 'OFFLINE'}
         </span>
       </div>
 
       <button
         onclick={() => (isPresetsModalOpen = true)}
-        class="px-3.5 py-2 rounded-lg bg-[#1E1E1E] hover:bg-[#252525] border border-[#2C2C2E] text-white font-mono text-xs cursor-pointer"
+        class="btn-expressive px-4 py-2 rounded-2xl glass-pill text-slate-700 dark:text-white font-mono text-xs cursor-pointer flex items-center gap-1.5"
       >
-        Presets ({encoder.presets.length})
+        <Sliders class="w-3.5 h-3.5" />
+        <span>Presets ({encoder.presets.length})</span>
       </button>
 
       <button
         onclick={() => (isQueueModalOpen = true)}
-        class="flex items-center gap-2 px-4 py-2 bg-[#00E5FF] hover:bg-[#00E5FF]/90 text-black font-semibold text-xs font-mono rounded-lg transition-all shadow-[0_0_15px_rgba(0,229,255,0.3)] cursor-pointer"
+        class="btn-expressive px-4 py-2.5 rounded-2xl bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-400 hover:to-indigo-400 text-white font-bold text-xs font-mono shadow-[0_0_20px_rgba(168,85,247,0.3)] flex items-center gap-2 cursor-pointer"
       >
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-        </svg>
-        Queue Transcode
+        <Plus class="w-4 h-4 stroke-[2.5]" />
+        <span>Queue Transcode</span>
       </button>
     </div>
   </div>
 
-  <!-- Active Transcoding Hero Telemetry (Wireframe 1 Style) -->
+  <!-- Active Transcoding Hero Telemetry -->
   {#if encoder.activeJob || (encoder.activeTelemetry && encoder.activeTelemetry.status === 'ENCODING')}
     {@const job = encoder.activeJob}
     {@const tel = encoder.activeTelemetry}
-    <div class="bg-[#1E1E1E] border border-[#00E5FF]/40 rounded-2xl p-5 shadow-[0_0_20px_rgba(0,229,255,0.15)] relative overflow-hidden">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+    <div class="glass-panel-elevated rounded-3xl p-6 shadow-2xl relative overflow-hidden border border-purple-500/30 space-y-4">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
           <div class="flex items-center gap-2.5">
-            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#00E5FF]/20 text-[#00E5FF] border border-[#00E5FF]/40 shadow-[0_0_8px_rgba(0,229,255,0.3)] animate-pulse">
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/40 shadow-[0_0_12px_rgba(168,85,247,0.3)] animate-pulse">
               TRANSCODING LIVE
             </span>
-            <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 border border-[#2C2C2E] text-gray-300">
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-black/5 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 text-slate-700 dark:text-slate-300">
               {tel?.preset_name || job?.preset_name}
             </span>
           </div>
-          <h2 class="text-base font-bold text-white mt-2 truncate max-w-2xl">
+          <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-2 truncate max-w-2xl font-mono">
             {tel?.file_name || job?.source_filename}
           </h2>
         </div>
@@ -212,7 +234,7 @@
         {#if job}
           <button
             onclick={() => handleCancel(job)}
-            class="self-start md:self-center px-3 py-1.5 rounded-lg bg-[#FF453A]/20 hover:bg-[#FF453A]/30 text-[#FF453A] border border-[#FF453A]/40 text-xs font-mono cursor-pointer"
+            class="btn-expressive self-start md:self-center px-4 py-1.5 rounded-2xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-600 dark:text-rose-300 border border-rose-500/40 text-xs font-mono cursor-pointer"
           >
             Stop Transcode
           </button>
@@ -222,46 +244,46 @@
       <!-- Live Progress Bar -->
       <div class="space-y-1.5">
         <div class="flex justify-between text-xs font-mono">
-          <span class="text-gray-400">Progress</span>
-          <span class="text-[#00E5FF] font-bold">
+          <span class="text-slate-500 dark:text-slate-400">Progress</span>
+          <span class="text-purple-600 dark:text-purple-400 font-bold">
             {(tel?.progress_pct ?? job?.progress_pct ?? 0).toFixed(1)}%
           </span>
         </div>
-        <div class="w-full h-3 rounded-full bg-[#121212] overflow-hidden border border-[#2C2C2E]">
+        <div class="w-full h-3 rounded-full bg-slate-200 dark:bg-slate-950/80 overflow-hidden border border-slate-200 dark:border-white/5 relative">
           <div
-            class="h-full rounded-full bg-gradient-to-r from-[#00E5FF] to-[#32D74B] transition-all duration-300"
+            class="h-full rounded-full bg-gradient-to-r from-purple-500 via-indigo-400 to-cyan-400 transition-all duration-300 shadow-[0_0_15px_rgba(168,85,247,0.5)]"
             style="width: {Math.min(100, Math.max(0, tel?.progress_pct ?? job?.progress_pct ?? 0))}%"
           ></div>
         </div>
       </div>
 
       <!-- Live Telemetry Matrix -->
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-4 pt-4 border-t border-[#2C2C2E]/60 text-xs font-mono">
-        <div>
-          <span class="text-gray-500 block text-[10px]">FPS</span>
-          <span class="text-white font-bold">{(tel?.fps ?? job?.fps ?? 0).toFixed(1)}</span>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-3 border-t border-slate-200/80 dark:border-white/5 text-xs font-mono text-center">
+        <div class="glass-panel p-2.5 rounded-2xl border border-slate-200/60 dark:border-white/5">
+          <span class="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-bold">FPS</span>
+          <span class="text-slate-900 dark:text-white font-bold text-sm mt-0.5">{(tel?.fps ?? job?.fps ?? 0).toFixed(1)}</span>
         </div>
-        <div>
-          <span class="text-gray-500 block text-[10px]">SPEED</span>
-          <span class="text-[#00E5FF] font-bold">{(tel?.speed ?? job?.speed ?? 0).toFixed(2)}x</span>
+        <div class="glass-panel p-2.5 rounded-2xl border border-slate-200/60 dark:border-white/5">
+          <span class="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-bold">SPEED</span>
+          <span class="text-purple-600 dark:text-purple-300 font-bold text-sm mt-0.5">{(tel?.speed ?? job?.speed ?? 0).toFixed(2)}x</span>
         </div>
-        <div>
-          <span class="text-gray-500 block text-[10px]">FRAME</span>
-          <span class="text-gray-300">{tel?.current_frame ?? job?.current_frame ?? 0}</span>
+        <div class="glass-panel p-2.5 rounded-2xl border border-slate-200/60 dark:border-white/5">
+          <span class="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-bold">FRAME</span>
+          <span class="text-slate-800 dark:text-slate-200 text-sm mt-0.5">{tel?.current_frame ?? job?.current_frame ?? 0}</span>
         </div>
-        <div>
-          <span class="text-gray-500 block text-[10px]">TIME / DURATION</span>
-          <span class="text-gray-300">
+        <div class="glass-panel p-2.5 rounded-2xl border border-slate-200/60 dark:border-white/5">
+          <span class="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-bold">TIME / DURATION</span>
+          <span class="text-slate-700 dark:text-slate-300 text-xs mt-1 block">
             {formatTime(tel?.current_time_sec ?? job?.current_time_sec ?? 0)} / {formatTime(tel?.total_duration_sec ?? job?.total_duration_sec ?? 0)}
           </span>
         </div>
-        <div>
-          <span class="text-gray-500 block text-[10px]">ETA</span>
-          <span class="text-[#32D74B] font-bold">{formatEta(tel?.eta_seconds ?? job?.eta_seconds)}</span>
+        <div class="glass-panel p-2.5 rounded-2xl border border-slate-200/60 dark:border-white/5">
+          <span class="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-bold">ETA</span>
+          <span class="text-emerald-600 dark:text-emerald-400 font-bold text-sm mt-0.5">{formatEta(tel?.eta_seconds ?? job?.eta_seconds)}</span>
         </div>
-        <div>
-          <span class="text-gray-500 block text-[10px]">CURRENT SIZE</span>
-          <span class="text-white">
+        <div class="glass-panel p-2.5 rounded-2xl border border-slate-200/60 dark:border-white/5">
+          <span class="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-bold">CURRENT SIZE</span>
+          <span class="text-cyan-600 dark:text-cyan-300 font-bold text-sm mt-0.5">
             {formatBytes(tel?.current_size_bytes ?? job?.encoded_size_bytes ?? 0)}
           </span>
         </div>
@@ -271,60 +293,64 @@
 
   <!-- Telemetry KPI Banners -->
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-    <!-- Active Transcoding -->
-    <div class="p-4 rounded-xl bg-[#1E1E1E] border border-[#2C2C2E]">
+    <div class="glass-card-interactive rounded-3xl p-5">
       <div class="flex justify-between items-start">
-        <span class="text-xs font-medium text-gray-400">ACTIVE ENCODER</span>
-        <span class="text-xs font-mono text-[#00E5FF]">GPU / CPU</span>
+        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wider uppercase text-[11px]">ACTIVE ENCODER</span>
+        <div class="p-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-300 border border-purple-500/20">
+          <Cpu class="w-4 h-4" />
+        </div>
       </div>
-      <div class="mt-2 text-2xl font-bold font-mono text-white">
+      <div class="mt-2 text-2xl sm:text-3xl font-extrabold font-mono text-slate-900 dark:text-white">
         {encoder.activeJob ? 1 : 0}
       </div>
     </div>
 
-    <!-- Queue Depth -->
-    <div class="p-4 rounded-xl bg-[#1E1E1E] border border-[#2C2C2E]">
+    <div class="glass-card-interactive rounded-3xl p-5">
       <div class="flex justify-between items-start">
-        <span class="text-xs font-medium text-gray-400">QUEUE DEPTH</span>
-        <span class="text-xs font-mono text-amber-400">PENDING</span>
+        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wider uppercase text-[11px]">QUEUE DEPTH</span>
+        <div class="p-2 rounded-xl bg-amber-500/10 text-amber-300 border border-amber-500/20">
+          <Clock class="w-4 h-4" />
+        </div>
       </div>
-      <div class="mt-2 text-2xl font-bold font-mono text-amber-400">
+      <div class="mt-2 text-2xl sm:text-3xl font-extrabold font-mono text-amber-300">
         {encoder.queuedCount}
       </div>
     </div>
 
-    <!-- Completed Transcodes -->
-    <div class="p-4 rounded-xl bg-[#1E1E1E] border border-[#2C2C2E]">
+    <div class="glass-card-interactive rounded-3xl p-5">
       <div class="flex justify-between items-start">
-        <span class="text-xs font-medium text-gray-400">COMPLETED JOBS</span>
-        <span class="text-xs font-mono text-[#32D74B]">FINISHED</span>
+        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wider uppercase text-[11px]">COMPLETED JOBS</span>
+        <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+          <CheckCircle2 class="w-4 h-4" />
+        </div>
       </div>
-      <div class="mt-2 text-2xl font-bold font-mono text-[#32D74B]">
+      <div class="mt-2 text-2xl sm:text-3xl font-extrabold font-mono text-emerald-400">
         {encoder.completedCount}
       </div>
     </div>
 
-    <!-- Space Saved -->
-    <div class="p-4 rounded-xl bg-[#1E1E1E] border border-[#2C2C2E]">
+    <div class="glass-card-interactive rounded-3xl p-5">
       <div class="flex justify-between items-start">
-        <span class="text-xs font-medium text-gray-400">TOTAL SPACE SAVED</span>
-        <span class="text-xs font-mono text-[#32D74B]">EFFICIENCY</span>
+        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wider uppercase text-[11px]">TOTAL SPACE SAVED</span>
+        <div class="p-2 rounded-xl bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+          <HardDrive class="w-4 h-4" />
+        </div>
       </div>
-      <div class="mt-2 text-2xl font-bold font-mono text-[#32D74B]">
+      <div class="mt-2 text-2xl sm:text-3xl font-extrabold font-mono text-cyan-300">
         {formatBytes(encoder.totalSavedBytes)}
       </div>
     </div>
   </div>
 
   <!-- Filters & Controls Bar -->
-  <div class="flex flex-col sm:flex-row justify-between items-center gap-4 bg-[#1E1E1E] p-3 rounded-xl border border-[#2C2C2E]">
-    <div class="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+  <div class="glass-panel p-3.5 rounded-3xl border border-slate-200/80 dark:border-white/10 flex flex-col sm:flex-row justify-between items-center gap-3">
+    <div class="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto scrollbar-none pb-1 sm:pb-0">
       {#each ['ALL', 'QUEUED', 'ENCODING', 'COMPLETED', 'FAILED'] as const as st}
         <button
           onclick={() => (filterStatus = st)}
-          class="px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all cursor-pointer whitespace-nowrap {filterStatus === st
-            ? 'bg-[#00E5FF]/20 text-[#00E5FF] border border-[#00E5FF]/40'
-            : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent'}"
+          class="btn-expressive px-4 py-1.5 rounded-full text-xs font-mono font-semibold transition-all cursor-pointer whitespace-nowrap {filterStatus === st
+            ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/40 shadow-[0_0_12px_rgba(168,85,247,0.25)]'
+            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 border border-transparent'}"
         >
           {st}
         </button>
@@ -332,16 +358,17 @@
     </div>
 
     <div class="relative w-full sm:w-72">
+      <Search class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
       <input
         type="text"
         bind:value={searchQuery}
-        placeholder="Search jobs by filename or preset..."
-        class="w-full bg-[#121212] border border-[#2C2C2E] rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#00E5FF]"
+        placeholder="Filter by filename or preset..."
+        class="glass-input w-full rounded-2xl pl-9 pr-8 py-2 text-xs font-mono"
       />
       {#if searchQuery}
         <button
           onclick={() => (searchQuery = '')}
-          class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white text-xs cursor-pointer"
+          class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-white text-xs cursor-pointer"
         >
           ✕
         </button>
@@ -349,94 +376,84 @@
     </div>
   </div>
 
-  <!-- Jobs Queue & History Table -->
+  <!-- Jobs Queue & History -->
   {#if encoder.loading && encoder.jobs.length === 0}
-    <div class="text-center py-16 bg-[#1E1E1E] rounded-xl border border-[#2C2C2E]">
-      <div class="inline-block animate-spin w-8 h-8 border-2 border-[#00E5FF] border-t-transparent rounded-full mb-3"></div>
-      <p class="text-sm font-mono text-gray-400">Loading encoding queue...</p>
+    <div class="text-center py-20 glass-panel rounded-3xl border border-slate-200/80 dark:border-white/10">
+      <div class="inline-block animate-spin w-8 h-8 border-2 border-purple-500 dark:border-purple-400 border-t-transparent rounded-full mb-3"></div>
+      <p class="text-sm font-mono text-slate-500 dark:text-slate-400">Loading encoding queue...</p>
     </div>
   {:else if filteredJobs.length === 0}
-    <div class="text-center py-16 bg-[#1E1E1E] rounded-xl border border-[#2C2C2E]">
-      <svg class="w-12 h-12 mx-auto text-gray-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-      </svg>
-      <h3 class="text-base font-semibold text-white">No encoding jobs</h3>
-      <p class="text-xs text-gray-400 mt-1 max-w-sm mx-auto">
+    <div class="text-center py-20 glass-panel rounded-3xl border border-slate-200/80 dark:border-white/10 space-y-4">
+      <Film class="w-12 h-12 text-slate-400 dark:text-slate-600 mx-auto" />
+      <h3 class="text-base font-bold text-slate-900 dark:text-white font-mono">No encoding jobs</h3>
+      <p class="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto font-mono">
         Queue a video transcode to compress large anime releases using HEVC / x265 presets.
       </p>
-      <div class="mt-4">
+      <div class="pt-2">
         <button
           onclick={() => (isQueueModalOpen = true)}
-          class="px-4 py-2 bg-[#00E5FF] text-black font-semibold rounded-lg text-xs font-mono cursor-pointer"
+          class="btn-expressive px-5 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-bold rounded-2xl text-xs font-mono shadow-[0_0_15px_rgba(168,85,247,0.3)] cursor-pointer"
         >
           Queue First Transcode
         </button>
       </div>
     </div>
   {:else}
-    <div class="space-y-3">
+    <div class="space-y-3.5">
       {#each filteredJobs as item (item.id)}
-        <div class="bg-[#1E1E1E] border border-[#2C2C2E] hover:border-[#3C3C3E] rounded-xl p-4 transition-all">
-          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-            <div class="min-w-0 flex-1">
+        <div class="glass-card-interactive rounded-3xl p-5 border border-white/10 space-y-3.5">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div class="min-w-0 flex-1 space-y-2">
               <div class="flex items-center gap-2.5 flex-wrap">
                 <!-- Status Badge -->
-                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold {
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold {
                   item.status === 'ENCODING'
-                    ? 'bg-[#00E5FF]/20 text-[#00E5FF] border border-[#00E5FF]/40 shadow-[0_0_8px_rgba(0,229,255,0.2)]'
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-[0_0_10px_rgba(168,85,247,0.3)]'
                     : item.status === 'COMPLETED'
-                    ? 'bg-[#32D74B]/20 text-[#32D74B] border border-[#32D74B]/40'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                     : item.status === 'QUEUED'
-                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
-                    : 'bg-[#FF453A]/20 text-[#FF453A] border border-[#FF453A]/40'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
                 }">
                   {item.status}
                 </span>
 
-                <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 border border-[#2C2C2E] text-gray-300">
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-black/5 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 text-slate-700 dark:text-slate-300">
                   {item.preset_name}
                 </span>
 
-                <h3 class="text-sm font-semibold text-white truncate max-w-xl" title={item.source_file_path}>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white truncate max-w-xl font-mono" title={item.source_file_path}>
                   {item.source_filename}
                 </h3>
               </div>
 
               <!-- Metrics Row -->
-              <div class="flex items-center gap-4 text-xs font-mono text-gray-400 mt-2 flex-wrap">
+              <div class="flex items-center gap-4 text-xs font-mono text-slate-500 dark:text-slate-400 flex-wrap">
                 <span>
-                  SOURCE: <span class="text-gray-300">{formatBytes(item.source_size_bytes)}</span>
+                  Source: <strong class="text-slate-800 dark:text-slate-200">{formatBytes(item.source_size_bytes)}</strong>
                 </span>
                 {#if item.encoded_size_bytes > 0}
                   <span>
-                    OUTPUT: <span class="text-[#00E5FF]">{formatBytes(item.encoded_size_bytes)}</span>
+                    Output: <strong class="text-cyan-300">{formatBytes(item.encoded_size_bytes)}</strong>
                   </span>
                   {#if item.status === 'COMPLETED'}
                     {@const saved = calcSavingsPct(item.source_size_bytes, item.encoded_size_bytes)}
                     {#if saved > 0}
-                      <span class="text-[#32D74B] font-bold">
-                        Saved: {saved}% size
+                      <span class="text-emerald-400 font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                        Saved: {saved}%
                       </span>
                     {/if}
                   {/if}
                 {/if}
 
                 {#if item.status === 'ENCODING'}
-                  <span class="text-[#00E5FF]">
-                    {item.speed.toFixed(2)}x speed
-                  </span>
-                  <span>
-                    {item.fps.toFixed(1)} fps
-                  </span>
-                  <span>
-                    ETA: {formatEta(item.eta_seconds)}
-                  </span>
+                  <span class="text-purple-300 font-bold">{item.speed.toFixed(2)}x speed</span>
+                  <span>{item.fps.toFixed(1)} fps</span>
+                  <span>ETA: <strong class="text-slate-800 dark:text-white">{formatEta(item.eta_seconds)}</strong></span>
                 {/if}
 
                 {#if item.error_message}
-                  <span class="text-[#FF453A] truncate max-w-sm" title={item.error_message}>
-                    Error: {item.error_message}
-                  </span>
+                  <span class="text-rose-400 truncate max-w-sm">Error: {item.error_message}</span>
                 {/if}
               </div>
             </div>
@@ -446,7 +463,7 @@
               {#if item.status === 'QUEUED' || item.status === 'ENCODING'}
                 <button
                   onclick={() => handleCancel(item)}
-                  class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-[#FF453A]/20 text-gray-300 hover:text-[#FF453A] border border-[#2C2C2E] text-xs cursor-pointer"
+                  class="btn-expressive px-3 py-1.5 rounded-2xl glass-pill text-slate-700 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/20 border-rose-500/30 text-xs cursor-pointer"
                   title="Cancel Job"
                 >
                   Cancel
@@ -455,32 +472,32 @@
 
               <button
                 onclick={() => handleDelete(item)}
-                class="p-1.5 rounded-lg bg-white/5 hover:bg-[#FF453A]/20 text-gray-400 hover:text-[#FF453A] border border-[#2C2C2E] text-xs cursor-pointer"
+                class="btn-expressive p-2 rounded-2xl glass-pill text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/30 text-xs cursor-pointer"
                 title="Delete Record"
               >
-                ✕
+                <Trash2 class="w-4 h-4" />
               </button>
             </div>
           </div>
 
           <!-- Progress Bar -->
-          <div class="mt-3">
-            <div class="flex justify-between items-center text-[11px] font-mono text-gray-400 mb-1">
+          <div class="space-y-1.5">
+            <div class="flex justify-between items-center text-[11px] font-mono text-slate-500 dark:text-slate-400">
               <span>Transcode Progress</span>
-              <span class="font-bold {item.status === 'COMPLETED' ? 'text-[#32D74B]' : 'text-[#00E5FF]'}">
+              <span class="font-bold {item.status === 'COMPLETED' ? 'text-emerald-400' : 'text-purple-400'}">
                 {item.progress_pct.toFixed(1)}%
               </span>
             </div>
-            <div class="w-full h-2 rounded-full bg-[#121212] overflow-hidden border border-[#2C2C2E]">
+            <div class="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-950/80 overflow-hidden border border-slate-200/80 dark:border-white/5 relative">
               <div
-                class="h-full rounded-full transition-all duration-300 {
+                class="h-full rounded-full transition-all duration-300 relative {
                   item.status === 'COMPLETED'
-                    ? 'bg-[#32D74B]'
+                    ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)]'
                     : item.status === 'FAILED'
-                    ? 'bg-[#FF453A]'
+                    ? 'bg-rose-500'
                     : item.status === 'QUEUED'
                     ? 'bg-amber-400'
-                    : 'bg-gradient-to-r from-[#00E5FF] to-[#32D74B]'
+                    : 'bg-gradient-to-r from-purple-500 via-indigo-400 to-cyan-400 shadow-[0_0_12px_rgba(168,85,247,0.4)]'
                 }"
                 style="width: {Math.min(100, Math.max(0, item.progress_pct))}%"
               ></div>
@@ -494,64 +511,62 @@
 
 <!-- Queue Transcode Modal -->
 {#if isQueueModalOpen}
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-    <div class="bg-[#1E1E1E] border border-[#2C2C2E] rounded-2xl p-6 max-w-lg w-full shadow-2xl relative space-y-4">
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl animate-fade-in">
+    <div class="glass-panel-elevated rounded-3xl p-6 max-w-lg w-full shadow-2xl relative space-y-4 border border-slate-200/80 dark:border-white/15 animate-scale-in">
       <div class="flex justify-between items-center">
-        <h3 class="text-lg font-bold text-white flex items-center gap-2">
-          <svg class="w-5 h-5 text-[#00E5FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-          </svg>
-          Queue Video Transcode
+        <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <Film class="w-5 h-5 text-purple-600 dark:text-purple-400" />
+          <span>Queue Video Transcode</span>
         </h3>
         <button
           onclick={() => (isQueueModalOpen = false)}
-          class="text-gray-400 hover:text-white cursor-pointer"
+          class="btn-expressive p-2 rounded-full glass-pill text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
         >
-          ✕
+          <X class="w-4 h-4" />
         </button>
       </div>
 
       <form onsubmit={handleQueueJob} class="space-y-4 text-xs font-mono">
-        <div>
-          <label for="source-path" class="block text-gray-400 mb-1">SOURCE FILE PATH</label>
+        <div class="space-y-1.5">
+          <label for="source-path" class="block text-slate-600 dark:text-slate-400 font-bold uppercase text-[10px]">SOURCE FILE PATH</label>
           <input
             id="source-path"
             type="text"
             required
             bind:value={newSourcePath}
             placeholder="e.g. /data/downloads/Odekake Kozame - 93 [1080p].mkv"
-            class="w-full bg-[#121212] border border-[#2C2C2E] rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-[#00E5FF]"
+            class="glass-input w-full rounded-2xl px-3.5 py-2.5"
           />
         </div>
 
-        <div>
-          <label for="preset-select" class="block text-gray-400 mb-1">ENCODING PRESET</label>
+        <div class="space-y-1.5">
+          <label for="preset-select" class="block text-slate-600 dark:text-slate-400 font-bold uppercase text-[10px]">ENCODING PRESET</label>
           <select
             id="preset-select"
             bind:value={newPresetId}
-            class="w-full bg-[#121212] border border-[#2C2C2E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#00E5FF]"
+            class="glass-input w-full rounded-2xl px-3.5 py-2.5"
           >
             {#each encoder.presets as preset}
-              <option value={preset.id}>
+              <option value={preset.id} class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
                 {preset.name} ({preset.video_codec}, CRF {preset.crf}, {preset.target_resolution || 'source res'}) {preset.is_default ? '★ Default' : ''}
               </option>
             {/each}
           </select>
         </div>
 
-        <div>
-          <label for="target-path" class="block text-gray-400 mb-1">TARGET OUTPUT PATH (OPTIONAL)</label>
+        <div class="space-y-1.5">
+          <label for="target-path" class="block text-slate-600 dark:text-slate-400 font-bold uppercase text-[10px]">TARGET OUTPUT PATH (OPTIONAL)</label>
           <input
             id="target-path"
             type="text"
             bind:value={newTargetPath}
             placeholder="Auto-generated in /data/temp_encode if left empty"
-            class="w-full bg-[#121212] border border-[#2C2C2E] rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-[#00E5FF]"
+            class="glass-input w-full rounded-2xl px-3.5 py-2.5"
           />
         </div>
 
         {#if queueError}
-          <div class="p-3 bg-[#FF453A]/10 border border-[#FF453A]/30 rounded-lg text-[#FF453A]">
+          <div class="p-3 bg-rose-500/10 border border-rose-500/40 rounded-xl text-rose-600 dark:text-rose-300">
             {queueError}
           </div>
         {/if}
@@ -560,20 +575,21 @@
           <button
             type="button"
             onclick={() => (isQueueModalOpen = false)}
-            class="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 cursor-pointer"
+            class="btn-expressive px-4 py-2 rounded-2xl glass-pill text-slate-700 dark:text-slate-300 cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isQueueing || !newSourcePath.trim()}
-            class="px-5 py-2 rounded-lg bg-[#00E5FF] hover:bg-[#00E5FF]/90 text-black font-semibold transition-all disabled:opacity-50 cursor-pointer flex items-center gap-2"
+            class="btn-expressive px-5 py-2.5 rounded-2xl bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-bold transition-all disabled:opacity-40 cursor-pointer flex items-center gap-2 shadow-[0_0_15px_rgba(168,85,247,0.3)]"
           >
             {#if isQueueing}
-              <span class="inline-block animate-spin w-3 h-3 border-2 border-black border-t-transparent rounded-full"></span>
-              Queueing...
+              <span class="inline-block animate-spin w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span>
+              <span>Queueing...</span>
             {:else}
-              Start Transcode
+              <Zap class="w-4 h-4" />
+              <span>Start Transcode</span>
             {/if}
           </button>
         </div>
@@ -584,35 +600,33 @@
 
 <!-- Presets Management Modal -->
 {#if isPresetsModalOpen}
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-    <div class="bg-[#1E1E1E] border border-[#2C2C2E] rounded-2xl p-6 max-w-2xl w-full shadow-2xl relative space-y-5">
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl animate-fade-in">
+    <div class="glass-panel-elevated rounded-3xl p-6 max-w-2xl w-full shadow-2xl relative space-y-5 border border-slate-200/80 dark:border-white/15 animate-scale-in">
       <div class="flex justify-between items-center">
-        <h3 class="text-lg font-bold text-white flex items-center gap-2">
-          <svg class="w-5 h-5 text-[#00E5FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          </svg>
-          Encoding Presets
+        <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <Sliders class="w-5 h-5 text-purple-600 dark:text-purple-400" />
+          <span>Encoding Presets</span>
         </h3>
         <button
           onclick={() => (isPresetsModalOpen = false)}
-          class="text-gray-400 hover:text-white cursor-pointer"
+          class="btn-expressive p-2 rounded-full glass-pill text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
         >
-          ✕
+          <X class="w-4 h-4" />
         </button>
       </div>
 
       <!-- Presets List -->
       <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
         {#each encoder.presets as preset}
-          <div class="p-3 bg-[#121212] border border-[#2C2C2E] rounded-xl flex items-center justify-between text-xs font-mono">
+          <div class="p-3.5 glass-panel rounded-2xl flex items-center justify-between text-xs font-mono border border-slate-200/60 dark:border-white/5">
             <div>
               <div class="flex items-center gap-2">
-                <span class="font-bold text-white">{preset.name}</span>
+                <span class="font-bold text-slate-900 dark:text-white">{preset.name}</span>
                 {#if preset.is_default}
-                  <span class="px-1.5 py-0.2 rounded bg-[#00E5FF]/20 text-[#00E5FF] text-[10px]">DEFAULT</span>
+                  <span class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-600 dark:text-purple-300 text-[10px] font-bold border border-purple-500/30">DEFAULT</span>
                 {/if}
               </div>
-              <div class="text-[11px] text-gray-400 mt-1">
+              <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                 {preset.video_codec} • {preset.preset} • CRF {preset.crf} • {preset.target_resolution || 'source'} • Audio: {preset.audio_codec}
               </div>
             </div>
@@ -621,67 +635,67 @@
       </div>
 
       <!-- Add New Preset Form -->
-      <form onsubmit={handleCreatePreset} class="p-4 bg-[#121212] rounded-xl border border-[#2C2C2E] space-y-3 text-xs font-mono">
-        <h4 class="font-bold text-white uppercase text-[11px] text-[#00E5FF]">Create Custom Preset</h4>
+      <form onsubmit={handleCreatePreset} class="p-4.5 glass-panel rounded-2xl border border-slate-200/60 dark:border-white/5 space-y-3.5 text-xs font-mono">
+        <h4 class="font-bold uppercase text-[11px] text-purple-600 dark:text-purple-300 tracking-wider">Create Custom Preset</h4>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label for="p-name" class="block text-gray-400 mb-1">NAME</label>
+          <div class="space-y-1">
+            <label for="p-name" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">NAME</label>
             <input
               id="p-name"
               type="text"
               required
               bind:value={presetName}
               placeholder="e.g. 720p x265 Anime"
-              class="w-full bg-[#1E1E1E] border border-[#2C2C2E] rounded px-2.5 py-1.5 text-white"
+              class="glass-input w-full rounded-xl px-3 py-2"
             />
           </div>
-          <div>
-            <label for="p-res" class="block text-gray-400 mb-1">RESOLUTION (e.g. 1280x720)</label>
+          <div class="space-y-1">
+            <label for="p-res" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">RESOLUTION</label>
             <input
               id="p-res"
               type="text"
               bind:value={presetRes}
               placeholder="1280x720 (empty for source)"
-              class="w-full bg-[#1E1E1E] border border-[#2C2C2E] rounded px-2.5 py-1.5 text-white"
+              class="glass-input w-full rounded-xl px-3 py-2"
             />
           </div>
         </div>
 
         <div class="grid grid-cols-3 gap-3">
-          <div>
-            <label for="p-codec" class="block text-gray-400 mb-1">CODEC</label>
+          <div class="space-y-1">
+            <label for="p-codec" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">CODEC</label>
             <select
               id="p-codec"
               bind:value={presetCodec}
-              class="w-full bg-[#1E1E1E] border border-[#2C2C2E] rounded px-2 py-1.5 text-white"
+              class="glass-input w-full rounded-xl px-2.5 py-2"
             >
-              <option value="libx265">libx265 (HEVC)</option>
-              <option value="libx264">libx264 (AVC)</option>
-              <option value="libsvtav1">libsvtav1 (AV1)</option>
+              <option value="libx265" class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">libx265 (HEVC)</option>
+              <option value="libx264" class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">libx264 (AVC)</option>
+              <option value="libsvtav1" class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">libsvtav1 (AV1)</option>
             </select>
           </div>
-          <div>
-            <label for="p-crf" class="block text-gray-400 mb-1">CRF (18-28)</label>
+          <div class="space-y-1">
+            <label for="p-crf" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">CRF (18-28)</label>
             <input
               id="p-crf"
               type="number"
               bind:value={presetCrf}
               min="0"
               max="51"
-              class="w-full bg-[#1E1E1E] border border-[#2C2C2E] rounded px-2.5 py-1.5 text-white"
+              class="glass-input w-full rounded-xl px-3 py-2"
             />
           </div>
-          <div>
-            <label for="p-speed" class="block text-gray-400 mb-1">PRESET SPEED</label>
+          <div class="space-y-1">
+            <label for="p-speed" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">SPEED</label>
             <select
               id="p-speed"
               bind:value={presetSpeed}
-              class="w-full bg-[#1E1E1E] border border-[#2C2C2E] rounded px-2 py-1.5 text-white"
+              class="glass-input w-full rounded-xl px-2.5 py-2"
             >
-              <option value="fast">fast</option>
-              <option value="medium">medium</option>
-              <option value="slow">slow</option>
+              <option value="fast" class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">fast</option>
+              <option value="medium" class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">medium</option>
+              <option value="slow" class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">slow</option>
             </select>
           </div>
         </div>
@@ -691,13 +705,13 @@
             id="p-default"
             type="checkbox"
             bind:checked={presetIsDefault}
-            class="rounded bg-[#1E1E1E] border-gray-600 text-[#00E5FF]"
+            class="rounded bg-slate-100 dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-purple-500 w-4 h-4"
           />
-          <label for="p-default" class="text-gray-300">Set as default preset</label>
+          <label for="p-default" class="text-slate-700 dark:text-slate-300 cursor-pointer">Set as default preset</label>
         </div>
 
         {#if presetError}
-          <div class="p-2 bg-[#FF453A]/10 text-[#FF453A] rounded border border-[#FF453A]/30">
+          <div class="p-2.5 bg-rose-500/10 text-rose-600 dark:text-rose-300 rounded-xl border border-rose-500/40">
             {presetError}
           </div>
         {/if}
@@ -706,7 +720,7 @@
           <button
             type="submit"
             disabled={isCreatingPreset || !presetName.trim()}
-            class="px-4 py-1.5 rounded bg-[#00E5FF] hover:bg-[#00E5FF]/90 text-black font-semibold disabled:opacity-50 cursor-pointer"
+            class="btn-expressive px-5 py-2 rounded-2xl bg-purple-500 hover:bg-purple-600 text-white font-bold disabled:opacity-40 cursor-pointer shadow-[0_0_15px_rgba(168,85,247,0.3)]"
           >
             Save Preset
           </button>

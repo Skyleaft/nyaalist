@@ -5,6 +5,28 @@
   import { encoder } from '#lib/stores/encoder.svelte';
   import { library } from '#lib/stores/library.svelte';
   import { api } from '#lib/api/client';
+  import {
+    Activity,
+    ArrowDownCircle,
+    ArrowUpRight,
+    Check,
+    CheckCircle2,
+    Compass,
+    Cpu,
+    DownloadCloud,
+    FolderKanban,
+    HardDrive,
+    Layers,
+    Play,
+    Plus,
+    Radio,
+    Search,
+    Settings,
+    Sparkles,
+    UploadCloud,
+    Video,
+    Zap
+  } from 'lucide-svelte';
 
   let quickMagnet = $state('');
   let isAddingMagnet = $state(false);
@@ -73,186 +95,240 @@
   <title>Dashboard - Nyaalist Mission Control</title>
 </svelte:head>
 
-<div class="flex-1 p-6 max-w-7xl mx-auto w-full space-y-6">
-  <!-- Top Quick Bar (Fast Magnet Adder & Quick Search) -->
-  <div class="bg-[#1E1E1E] border border-[#2C2C2E] rounded-2xl p-4 flex flex-col lg:flex-row items-center justify-between gap-4">
+<div class="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
+  <!-- Top Expressive Glass Command Deck -->
+  <div class="glass-panel rounded-3xl p-4 sm:p-5 flex flex-col lg:flex-row items-center justify-between gap-4 border border-white/10 shadow-2xl relative overflow-hidden">
     <!-- Fast Magnet Ingestion -->
-    <div class="flex-1 w-full flex items-center gap-2">
-      <div class="relative flex-1">
+    <div class="flex-1 w-full flex items-center gap-2.5">
+      <div class="relative flex-1 group">
         <input
           type="text"
           bind:value={quickMagnet}
           placeholder="Paste magnet:?xt=urn:btih:... or torrent info-hash"
-          class="w-full bg-[#121212] border border-[#2C2C2E] focus:border-[#00E5FF] outline-none rounded-xl px-4 py-2 text-xs font-mono text-white placeholder-gray-500 transition-colors"
+          class="glass-input w-full rounded-2xl px-4 py-2.5 text-xs font-mono placeholder-slate-500 transition-all pr-28"
           onkeydown={(e) => e.key === 'Enter' && handleAddMagnet()}
         />
         {#if magnetSuccess}
-          <span class="absolute right-3 top-2 text-[10px] font-mono text-[#32D74B]">✓ Torrent queued</span>
+          <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 animate-fade-in">
+            <Check class="w-3 h-3" />
+            <span>Queued</span>
+          </div>
         {/if}
       </div>
+
       <button
         onclick={handleAddMagnet}
         disabled={isAddingMagnet || !quickMagnet.trim()}
-        class="bg-[#00E5FF] hover:bg-[#00C2D8] disabled:opacity-50 text-black text-xs font-mono font-bold px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+        class="btn-expressive bg-gradient-to-r from-cyan-400 to-sky-400 hover:from-cyan-300 hover:to-sky-300 disabled:opacity-40 text-slate-950 text-xs font-bold px-4 py-2.5 rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-[0_0_20px_rgba(0,229,255,0.25)]"
       >
-        <span>+ Add Magnet</span>
+        <Plus class="w-4 h-4 stroke-[2.5]" />
+        <span>Add Magnet</span>
       </button>
     </div>
 
-    <!-- Quick Release Search & WebSocket Status -->
-    <div class="flex items-center gap-4 w-full lg:w-auto justify-between lg:justify-end">
-      <form onsubmit={handleSearchSubmit} class="flex items-center gap-2">
-        <input
-          type="text"
-          bind:value={quickSearch}
-          placeholder="Search Nyaa..."
-          class="w-44 lg:w-56 bg-[#121212] border border-[#2C2C2E] focus:border-[#00E5FF] outline-none rounded-xl px-3 py-2 text-xs font-mono text-white placeholder-gray-500 transition-colors"
-        />
+    <!-- Quick Search & Live Status Indicator -->
+    <div class="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
+      <form onsubmit={handleSearchSubmit} class="flex items-center gap-2 flex-1 sm:flex-none">
+        <div class="relative w-full sm:w-56">
+          <Search class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            bind:value={quickSearch}
+            placeholder="Search Nyaa..."
+            class="glass-input w-full rounded-2xl pl-9 pr-3 py-2.5 text-xs font-mono"
+          />
+        </div>
         <button
           type="submit"
-          class="bg-[#252525] hover:bg-[#323232] text-xs font-mono px-3 py-2 rounded-xl border border-[#2C2C2E] text-gray-200 transition-colors cursor-pointer"
+          class="btn-expressive glass-pill px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white cursor-pointer whitespace-nowrap"
         >
           Explore
         </button>
       </form>
 
-      <!-- Live WS Indicator -->
-      <div class="flex items-center gap-2 text-xs font-mono bg-[#121212] border border-[#2C2C2E] px-3 py-1.5 rounded-xl">
-        <div class="w-2.5 h-2.5 rounded-full {torrents.wsConnected ? 'bg-[#32D74B] animate-pulse' : 'bg-[#FF453A]'}"></div>
-        <span class="text-gray-300">{torrents.wsConnected ? 'WS LIVE' : 'WS OFFLINE'}</span>
+      <!-- WebSocket Live Pill -->
+      <div class="glass-pill px-3 py-2 rounded-2xl flex items-center gap-2 text-xs font-mono">
+        <div class="relative flex items-center justify-center">
+          <div class="w-2.5 h-2.5 rounded-full {torrents.wsConnected ? 'bg-emerald-400' : 'bg-rose-500'}"></div>
+          {#if torrents.wsConnected}
+            <div class="absolute w-4 h-4 rounded-full bg-emerald-400/30 animate-ping"></div>
+          {/if}
+        </div>
+        <span class="text-xs font-medium {torrents.wsConnected ? 'text-emerald-500 dark:text-emerald-300' : 'text-rose-500 dark:text-rose-400'}">
+          {torrents.wsConnected ? 'LIVE' : 'OFFLINE'}
+        </span>
       </div>
     </div>
   </div>
 
   {#if magnetError}
-    <div class="bg-[#3A1C1C] border-l-4 border-[#FF453A] p-4 rounded-r-xl text-xs font-mono text-red-200">
-      {magnetError}
+    <div class="glass-panel border-l-4 border-rose-500 p-4 rounded-2xl text-xs font-mono text-rose-600 dark:text-rose-300 bg-rose-500/10 dark:bg-rose-950/20 flex items-center justify-between">
+      <span>{magnetError}</span>
+      <button onclick={() => (magnetError = null)} class="text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-white cursor-pointer font-bold">✕</button>
     </div>
   {/if}
 
-  <!-- 4 Primary KPI Cards (WattVision Technical Dark Theme) -->
+  <!-- 4 Primary Expressive KPI Cards -->
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
     <!-- KPI 1: Download Throughput -->
-    <div class="bg-[#1E1E1E] border border-[#2C2C2E] rounded-2xl p-5 space-y-2 relative overflow-hidden">
-      <div class="flex items-center justify-between text-xs font-mono text-[#98989D]">
-        <span>DOWNLOAD SPEED</span>
-        <span class="text-[#00E5FF] font-bold">LIBRQBIT</span>
+    <div class="glass-card-interactive rounded-3xl p-5 space-y-3 relative overflow-hidden group">
+      <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
+        <span class="tracking-wide uppercase text-[11px]">Download Speed</span>
+        <div class="p-2 rounded-xl bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 group-hover:scale-110 transition-transform">
+          <DownloadCloud class="w-4 h-4" />
+        </div>
       </div>
-      <div class="text-2xl font-bold font-mono text-[#00E5FF] tracking-tight">
-        {formatBytes(torrents.totalDownloadSpeed)}/s
-      </div>
-      <div class="flex items-center justify-between text-[11px] font-mono text-gray-400 pt-1 border-t border-[#2C2C2E]">
-        <span>Upload: <span class="text-[#32D74B]">{formatBytes(torrents.totalUploadSpeed)}/s</span></span>
-        <span>{torrents.activeCount} active</span>
+      <div>
+        <div class="text-2xl sm:text-3xl font-extrabold font-mono tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-sky-300">
+          {formatBytes(torrents.totalDownloadSpeed)}/s
+        </div>
+        <div class="flex items-center justify-between text-xs font-mono text-slate-500 dark:text-slate-400 pt-3 mt-3 border-t border-slate-200/60 dark:border-white/5">
+          <span class="flex items-center gap-1.5">
+            <UploadCloud class="w-3.5 h-3.5 text-emerald-400" />
+            <span class="text-emerald-300">{formatBytes(torrents.totalUploadSpeed)}/s</span>
+          </span>
+          <span class="px-2 py-0.5 rounded-full text-[10px] bg-black/5 dark:bg-white/5 text-slate-600 dark:text-slate-300">
+            {torrents.activeCount} active
+          </span>
+        </div>
       </div>
     </div>
 
-    <!-- KPI 2: Active Torrents -->
-    <div class="bg-[#1E1E1E] border border-[#2C2C2E] rounded-2xl p-5 space-y-2 relative overflow-hidden">
-      <div class="flex items-center justify-between text-xs font-mono text-[#98989D]">
-        <span>TORRENT POOL</span>
-        <span class="text-[#32D74B] font-bold">SWARM</span>
+    <!-- KPI 2: Active Torrents Pool -->
+    <div class="glass-card-interactive rounded-3xl p-5 space-y-3 relative overflow-hidden group">
+      <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
+        <span class="tracking-wide uppercase text-[11px]">Torrent Pool</span>
+        <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 group-hover:scale-110 transition-transform">
+          <Layers class="w-4 h-4" />
+        </div>
       </div>
-      <div class="text-2xl font-bold font-mono text-white tracking-tight">
-        {torrents.activeCount} <span class="text-sm font-normal text-[#98989D]">DL /</span> {torrents.completedCount} <span class="text-sm font-normal text-[#98989D]">DONE</span>
-      </div>
-      <div class="flex items-center justify-between text-[11px] font-mono text-gray-400 pt-1 border-t border-[#2C2C2E]">
-        <span>Total: {torrents.jobs.length} jobs</span>
-        <a href="/downloads" class="text-[#00E5FF] hover:underline">View all →</a>
+      <div>
+        <div class="text-2xl sm:text-3xl font-extrabold font-mono tracking-tight text-slate-900 dark:text-white">
+          {torrents.activeCount} <span class="text-sm font-normal text-slate-500 dark:text-slate-400">DL /</span> {torrents.completedCount} <span class="text-sm font-normal text-emerald-500 dark:text-emerald-400">DONE</span>
+        </div>
+        <div class="flex items-center justify-between text-xs font-mono text-slate-500 dark:text-slate-400 pt-3 mt-3 border-t border-slate-200/60 dark:border-white/5">
+          <span>Total: {torrents.jobs.length} jobs</span>
+          <a href="/downloads" class="text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+            <span>View all</span>
+            <ArrowUpRight class="w-3.5 h-3.5" />
+          </a>
+        </div>
       </div>
     </div>
 
     <!-- KPI 3: Transcoding Pipeline -->
-    <div class="bg-[#1E1E1E] border border-[#2C2C2E] rounded-2xl p-5 space-y-2 relative overflow-hidden">
-      <div class="flex items-center justify-between text-xs font-mono text-[#98989D]">
-        <span>VIDEO TRANSCODER</span>
-        <span class="text-[#32D74B] font-bold">FFMPEG</span>
+    <div class="glass-card-interactive rounded-3xl p-5 space-y-3 relative overflow-hidden group">
+      <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
+        <span class="tracking-wide uppercase text-[11px]">Video Transcoder</span>
+        <div class="p-2 rounded-xl bg-purple-500/10 text-purple-300 border border-purple-500/20 group-hover:scale-110 transition-transform">
+          <Video class="w-4 h-4" />
+        </div>
       </div>
-      <div class="text-2xl font-bold font-mono text-white tracking-tight">
-        {#if encoder.activeJob}
-          <span class="text-[#32D74B]">1 ACTIVE</span>
-          <span class="text-xs font-mono text-gray-400 block font-normal truncate mt-0.5">
-            {encoder.activeTelemetry ? `${encoder.activeTelemetry.speed.toFixed(2)}x (${encoder.activeTelemetry.fps.toFixed(0)} fps)` : 'Transcoding...'}
-          </span>
-        {:else}
-          <span class="text-gray-400 font-normal text-lg">IDLE</span>
-          <span class="text-xs font-mono text-[#98989D] block font-normal mt-0.5">{encoder.queuedCount} in queue</span>
-        {/if}
-      </div>
-      <div class="flex items-center justify-between text-[11px] font-mono text-gray-400 pt-1 border-t border-[#2C2C2E]">
-        <span>Saved: <span class="text-[#32D74B]">{formatBytes(encoder.totalSavedBytes)}</span></span>
-        <a href="/encoder" class="text-[#00E5FF] hover:underline">Manage →</a>
+      <div>
+        <div class="text-2xl sm:text-3xl font-extrabold font-mono tracking-tight text-slate-900 dark:text-white">
+          {#if encoder.activeJob}
+            <span class="text-purple-600 dark:text-purple-400">1 ACTIVE</span>
+            <span class="text-xs font-mono text-slate-600 dark:text-slate-300 block font-normal truncate mt-1">
+              {encoder.activeTelemetry ? `${encoder.activeTelemetry.speed.toFixed(2)}x (${encoder.activeTelemetry.fps.toFixed(0)} fps)` : 'Transcoding...'}
+            </span>
+          {:else}
+            <span class="text-slate-500 dark:text-slate-400 font-medium">IDLE</span>
+            <span class="text-xs font-mono text-slate-400 dark:text-slate-500 block font-normal mt-1">{encoder.queuedCount} in queue</span>
+          {/if}
+        </div>
+        <div class="flex items-center justify-between text-xs font-mono text-slate-500 dark:text-slate-400 pt-3 mt-3 border-t border-slate-200/60 dark:border-white/5">
+          <span>Saved: <strong class="text-purple-600 dark:text-purple-300">{formatBytes(encoder.totalSavedBytes)}</strong></span>
+          <a href="/encoder" class="text-cyan-600 dark:text-cyan-400 hover:underline font-semibold flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+            <span>Manage</span>
+            <ArrowUpRight class="w-3.5 h-3.5" />
+          </a>
+        </div>
       </div>
     </div>
 
     <!-- KPI 4: Media Collection -->
-    <div class="bg-[#1E1E1E] border border-[#2C2C2E] rounded-2xl p-5 space-y-2 relative overflow-hidden">
-      <div class="flex items-center justify-between text-xs font-mono text-[#98989D]">
-        <span>LIBRARY MEDIA</span>
-        <span class="text-[#00E5FF] font-bold">STORAGE</span>
+    <div class="glass-card-interactive rounded-3xl p-5 space-y-3 relative overflow-hidden group">
+      <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
+        <span class="tracking-wide uppercase text-[11px]">Library Media</span>
+        <div class="p-2 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-300 border border-sky-500/20 group-hover:scale-110 transition-transform">
+          <HardDrive class="w-4 h-4" />
+        </div>
       </div>
-      <div class="text-2xl font-bold font-mono text-white tracking-tight">
-        {library.items.length} <span class="text-sm font-normal text-[#98989D]">Files</span>
-      </div>
-      <div class="flex items-center justify-between text-[11px] font-mono text-gray-400 pt-1 border-t border-[#2C2C2E]">
-        <span>Total: {formatBytes(library.totalSizeBytes)}</span>
-        <a href="/library" class="text-[#00E5FF] hover:underline">Browse →</a>
+      <div>
+        <div class="text-2xl sm:text-3xl font-extrabold font-mono tracking-tight text-slate-900 dark:text-white">
+          {library.items.length} <span class="text-sm font-normal text-slate-500 dark:text-slate-400">Files</span>
+        </div>
+        <div class="flex items-center justify-between text-xs font-mono text-slate-500 dark:text-slate-400 pt-3 mt-3 border-t border-slate-200/60 dark:border-white/5">
+          <span>Total: <strong class="text-sky-600 dark:text-sky-300">{formatBytes(library.totalSizeBytes)}</strong></span>
+          <a href="/library" class="text-cyan-600 dark:text-cyan-400 hover:underline font-semibold flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+            <span>Browse</span>
+            <ArrowUpRight class="w-3.5 h-3.5" />
+          </a>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Main Content Grid (8 Columns Left / 4 Columns Right) -->
+  <!-- Main Grid (8 Cols Left / 4 Cols Right) -->
   <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-    <!-- Left Column (8 cols): Active Operations & Live Pipelines -->
+    <!-- Left Column: Operations & Active Jobs -->
     <div class="lg:col-span-8 space-y-6">
       <!-- Active Downloads Panel -->
-      <div class="bg-[#1E1E1E] border border-[#2C2C2E] rounded-2xl p-6 space-y-4">
-        <div class="flex items-center justify-between border-b border-[#2C2C2E] pb-3">
-          <div class="flex items-center gap-2">
-            <div class="w-2.5 h-2.5 rounded-full bg-[#00E5FF] animate-pulse"></div>
-            <h2 class="text-sm font-bold font-mono text-white uppercase tracking-wider">Active Downloads</h2>
+      <div class="glass-panel rounded-3xl p-5 sm:p-6 space-y-4 border border-white/10 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-white/5 pb-3">
+          <div class="flex items-center gap-2.5">
+            <div class="relative flex items-center justify-center">
+              <span class="w-2.5 h-2.5 rounded-full bg-cyan-500 dark:bg-cyan-400 animate-pulse"></span>
+              <span class="absolute w-5 h-5 rounded-full bg-cyan-500/25 dark:bg-cyan-400/25 animate-ping"></span>
+            </div>
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white">Active Downloads</h2>
           </div>
-          <a href="/downloads" class="text-xs font-mono text-[#00E5FF] hover:underline">Open Downloads Manager →</a>
+          <a href="/downloads" class="text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1 transition-colors">
+            <span>Open Manager</span>
+            <ArrowUpRight class="w-3.5 h-3.5" />
+          </a>
         </div>
 
-        {#if torrents.jobs.filter(j => j.status === 'DOWNLOADING').length === 0}
-          <div class="p-8 text-center bg-[#121212] rounded-xl border border-[#2C2C2E]/60 space-y-3">
-            <p class="text-xs font-mono text-[#98989D]">No active torrent downloads in progress</p>
+        {#if torrents.jobs.filter((j: any) => j.status === 'DOWNLOADING').length === 0}
+          <div class="p-8 text-center rounded-2xl bg-slate-900/5 dark:bg-slate-950/30 border border-slate-200/60 dark:border-white/5 space-y-3">
+            <DownloadCloud class="w-8 h-8 text-slate-400 dark:text-slate-600 mx-auto" />
+            <p class="text-xs font-mono text-slate-500 dark:text-slate-400">No active torrent downloads in progress</p>
             <a
               href="/explore"
-              class="inline-block bg-[#00E5FF]/10 text-[#00E5FF] hover:bg-[#00E5FF]/20 border border-[#00E5FF]/30 px-4 py-2 rounded-lg text-xs font-mono font-semibold transition-colors"
+              class="inline-flex items-center gap-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-400/30 px-4 py-2 rounded-xl text-xs font-semibold transition-all btn-expressive"
             >
-              Browse Latest Anime Releases
+              <Compass class="w-3.5 h-3.5" />
+              <span>Browse Latest Anime Releases</span>
             </a>
           </div>
         {:else}
-          <div class="space-y-4">
-            {#each torrents.jobs.filter(j => j.status === 'DOWNLOADING') as job (job.id)}
-              <div class="bg-[#121212] border border-[#2C2C2E] rounded-xl p-4 space-y-3">
+          <div class="space-y-3">
+            {#each torrents.jobs.filter((j: any) => j.status === 'DOWNLOADING') as job (job.id)}
+              <div class="glass-card-interactive rounded-2xl p-4 space-y-3">
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0">
-                    <h3 class="text-xs font-bold font-mono text-white truncate" title={job.name}>
+                    <h3 class="text-xs font-bold font-mono text-slate-900 dark:text-white truncate max-w-xl" title={job.name}>
                       {job.name}
                     </h3>
-                    <div class="flex items-center gap-3 text-[11px] font-mono text-[#98989D] mt-1">
+                    <div class="flex items-center gap-3 text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-1.5 flex-wrap">
                       <span>{formatBytes(job.downloaded_bytes)} / {formatBytes(job.total_bytes)}</span>
-                      <span>•</span>
-                      <span class="text-[#00E5FF] font-semibold">{formatBytes(job.download_speed)}/s</span>
-                      <span>•</span>
-                      <span>Seeds: <strong class="text-white">{job.seeders}</strong></span>
-                      <span>•</span>
-                      <span>ETA: <strong class="text-white">{formatDuration(job.eta_seconds)}</strong></span>
+                      <span class="text-slate-400 dark:text-slate-600">•</span>
+                      <span class="text-cyan-600 dark:text-cyan-400 font-semibold">{formatBytes(job.download_speed)}/s</span>
+                      <span class="text-slate-400 dark:text-slate-600">•</span>
+                      <span>Seeds: <strong class="text-slate-800 dark:text-white">{job.seeders}</strong></span>
+                      <span class="text-slate-400 dark:text-slate-600">•</span>
+                      <span>ETA: <strong class="text-slate-800 dark:text-white">{formatDuration(job.eta_seconds)}</strong></span>
                     </div>
                   </div>
-                  <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#00E5FF]/10 text-[#00E5FF] border border-[#00E5FF]/30 whitespace-nowrap">
+                  <span class="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-cyan-400/10 text-cyan-700 dark:text-cyan-300 border border-cyan-400/30 whitespace-nowrap">
                     {job.progress_pct.toFixed(1)}%
                   </span>
                 </div>
 
-                <!-- Progress Bar -->
-                <div class="w-full h-2 bg-[#2C2C2E] rounded-full overflow-hidden">
+                <!-- Expressive Glowing Progress Bar -->
+                <div class="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-900/80 overflow-hidden border border-black/5 dark:border-white/5 relative">
                   <div
-                    class="h-full bg-gradient-to-r from-[#00E5FF] to-[#32D74B] transition-all duration-300"
+                    class="h-full rounded-full bg-gradient-to-r from-cyan-500 via-sky-400 to-emerald-400 transition-all duration-300 relative shadow-[0_0_12px_rgba(0,229,255,0.4)]"
                     style="width: {Math.max(1, Math.min(100, job.progress_pct))}%"
                   ></div>
                 </div>
@@ -263,74 +339,82 @@
       </div>
 
       <!-- Active Transcode Pipeline Card -->
-      <div class="bg-[#1E1E1E] border border-[#2C2C2E] rounded-2xl p-6 space-y-4">
-        <div class="flex items-center justify-between border-b border-[#2C2C2E] pb-3">
-          <div class="flex items-center gap-2">
-            <div class="w-2.5 h-2.5 rounded-full {encoder.activeJob ? 'bg-[#32D74B] animate-pulse' : 'bg-gray-500'}"></div>
-            <h2 class="text-sm font-bold font-mono text-white uppercase tracking-wider">Transcoding Pipeline</h2>
+      <div class="glass-panel rounded-3xl p-5 sm:p-6 space-y-4 border border-white/10 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-white/5 pb-3">
+          <div class="flex items-center gap-2.5">
+            <div class="relative flex items-center justify-center">
+              <span class="w-2.5 h-2.5 rounded-full {encoder.activeJob ? 'bg-purple-500 dark:bg-purple-400 animate-pulse' : 'bg-slate-400 dark:bg-slate-600'}"></span>
+              {#if encoder.activeJob}
+                <span class="absolute w-5 h-5 rounded-full bg-purple-500/25 dark:bg-purple-400/25 animate-ping"></span>
+              {/if}
+            </div>
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white">Transcoding Pipeline</h2>
           </div>
-          <a href="/encoder" class="text-xs font-mono text-[#00E5FF] hover:underline">Encoder Queue ({encoder.queuedCount}) →</a>
+          <a href="/encoder" class="text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1 transition-colors">
+            <span>Queue ({encoder.queuedCount})</span>
+            <ArrowUpRight class="w-3.5 h-3.5" />
+          </a>
         </div>
 
         {#if encoder.activeJob}
-          <div class="bg-[#121212] border border-[#2C2C2E] rounded-xl p-5 space-y-4">
+          <div class="glass-card-interactive rounded-2xl p-5 space-y-4">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div class="min-w-0">
-                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-[#32D74B]/10 text-[#32D74B] border border-[#32D74B]/30 uppercase font-bold">
+                <span class="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-300 border border-purple-500/30 uppercase font-bold tracking-wider">
                   ENCODING IN PROGRESS
                 </span>
-                <h3 class="text-xs font-bold font-mono text-white truncate mt-2" title={encoder.activeJob.source_file_path}>
+                <h3 class="text-xs font-bold font-mono text-slate-900 dark:text-white truncate mt-2 max-w-lg" title={encoder.activeJob.source_file_path}>
                   {encoder.activeJob.source_filename}
                 </h3>
-                <p class="text-[11px] font-mono text-[#98989D] mt-0.5">
-                  Target Preset: <strong class="text-[#00E5FF]">{encoder.activeJob.preset_name}</strong>
+                <p class="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-1">
+                  Preset: <strong class="text-cyan-600 dark:text-cyan-300">{encoder.activeJob.preset_name}</strong>
                 </p>
               </div>
 
               <div class="text-right font-mono">
-                <div class="text-xl font-bold text-[#32D74B]">
+                <div class="text-xl font-bold text-purple-600 dark:text-purple-400">
                   {encoder.activeTelemetry ? encoder.activeTelemetry.progress_pct.toFixed(1) : encoder.activeJob.progress_pct.toFixed(1)}%
                 </div>
-                <div class="text-[11px] text-[#98989D]">
-                  ETA: <strong class="text-white">{formatDuration(encoder.activeTelemetry?.eta_seconds || encoder.activeJob.eta_seconds)}</strong>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400">
+                  ETA: <strong class="text-slate-800 dark:text-white">{formatDuration(encoder.activeTelemetry?.eta_seconds || encoder.activeJob.eta_seconds)}</strong>
                 </div>
               </div>
             </div>
 
             <!-- Progress Bar -->
-            <div class="w-full h-2.5 bg-[#2C2C2E] rounded-full overflow-hidden">
+            <div class="w-full h-2.5 rounded-full bg-slate-900/80 overflow-hidden border border-white/5 relative">
               <div
-                class="h-full bg-gradient-to-r from-[#00E5FF] to-[#32D74B] transition-all duration-300"
+                class="h-full rounded-full bg-gradient-to-r from-purple-500 to-cyan-400 transition-all duration-300 shadow-[0_0_12px_rgba(168,85,247,0.4)]"
                 style="width: {Math.max(1, Math.min(100, encoder.activeTelemetry?.progress_pct || encoder.activeJob.progress_pct))}%"
               ></div>
             </div>
 
-            <!-- Live Telemetry Stats -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 text-center font-mono">
-              <div class="bg-[#1E1E1E] border border-[#2C2C2E] p-2.5 rounded-lg">
-                <div class="text-[10px] text-[#98989D] uppercase">Speed</div>
-                <div class="text-xs font-bold text-[#00E5FF] mt-0.5">
+            <!-- Live Telemetry Matrix -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1 text-center font-mono">
+              <div class="glass-panel p-2.5 rounded-xl border border-slate-200/60 dark:border-white/5">
+                <div class="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Speed</div>
+                <div class="text-xs font-bold text-cyan-600 dark:text-cyan-300 mt-0.5">
                   {encoder.activeTelemetry ? `${encoder.activeTelemetry.speed.toFixed(2)}x` : '--'}
                 </div>
               </div>
 
-              <div class="bg-[#1E1E1E] border border-[#2C2C2E] p-2.5 rounded-lg">
-                <div class="text-[10px] text-[#98989D] uppercase">Framerate</div>
-                <div class="text-xs font-bold text-white mt-0.5">
+              <div class="glass-panel p-2.5 rounded-xl border border-slate-200/60 dark:border-white/5">
+                <div class="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Framerate</div>
+                <div class="text-xs font-bold text-slate-900 dark:text-white mt-0.5">
                   {encoder.activeTelemetry ? `${encoder.activeTelemetry.fps.toFixed(1)} FPS` : '--'}
                 </div>
               </div>
 
-              <div class="bg-[#1E1E1E] border border-[#2C2C2E] p-2.5 rounded-lg">
-                <div class="text-[10px] text-[#98989D] uppercase">Time Elapsed</div>
-                <div class="text-xs font-bold text-gray-300 mt-0.5">
+              <div class="glass-panel p-2.5 rounded-xl border border-slate-200/60 dark:border-white/5">
+                <div class="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Time Elapsed</div>
+                <div class="text-xs font-bold text-slate-700 dark:text-slate-300 mt-0.5">
                   {encoder.activeTelemetry ? formatDuration(encoder.activeTelemetry.current_time_sec) : '--'}
                 </div>
               </div>
 
-              <div class="bg-[#1E1E1E] border border-[#2C2C2E] p-2.5 rounded-lg">
-                <div class="text-[10px] text-[#98989D] uppercase">Space Saved</div>
-                <div class="text-xs font-bold text-[#32D74B] mt-0.5">
+              <div class="glass-panel p-2.5 rounded-xl border border-slate-200/60 dark:border-white/5">
+                <div class="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Space Saved</div>
+                <div class="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
                   {#if encoder.activeTelemetry && encoder.activeTelemetry.source_size_bytes > 0 && encoder.activeTelemetry.current_size_bytes > 0}
                     {formatBytes(Math.max(0, encoder.activeTelemetry.source_size_bytes - encoder.activeTelemetry.current_size_bytes))}
                   {:else}
@@ -341,141 +425,165 @@
             </div>
           </div>
         {:else}
-          <div class="p-6 text-center bg-[#121212] rounded-xl border border-[#2C2C2E]/60 space-y-2">
-            <p class="text-xs font-mono text-[#98989D]">Transcoder engine is idle</p>
+          <div class="p-8 text-center rounded-2xl bg-slate-100 dark:bg-slate-950/30 border border-slate-200/80 dark:border-white/5 space-y-3">
+            <Cpu class="w-8 h-8 text-slate-400 dark:text-slate-600 mx-auto" />
+            <p class="text-xs font-mono text-slate-500 dark:text-slate-400">Transcoder engine is idle</p>
             <a
               href="/encoder"
-              class="inline-block bg-[#252525] hover:bg-[#323232] border border-[#2C2C2E] text-gray-200 text-xs font-mono px-4 py-2 rounded-lg transition-colors"
+              class="inline-flex items-center gap-1.5 glass-pill px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white transition-all btn-expressive"
             >
-              Queue Video Transcode Job
+              <Plus class="w-3.5 h-3.5" />
+              <span>Queue Video Transcode Job</span>
             </a>
           </div>
         {/if}
       </div>
     </div>
 
-    <!-- Right Column (4 cols): Quick Controls, Storage, System Alerts -->
+    <!-- Right Column: Navigation Actions, Storage & System Status -->
     <div class="lg:col-span-4 space-y-6">
       <!-- Quick Navigation Actions -->
-      <div class="bg-[#1E1E1E] border border-[#2C2C2E] rounded-2xl p-6 space-y-4">
-        <h2 class="text-xs font-bold font-mono text-[#98989D] uppercase tracking-wider border-b border-[#2C2C2E] pb-2">
+      <div class="glass-panel rounded-3xl p-5 space-y-4 border border-slate-200/80 dark:border-white/10 shadow-2xl">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200/80 dark:border-white/5 pb-2.5">
           Mission Control Actions
         </h2>
 
-        <div class="grid grid-cols-1 gap-2.5">
+        <div class="grid grid-cols-1 gap-2">
           <a
             href="/explore"
-            class="flex items-center justify-between p-3 rounded-xl bg-[#121212] hover:bg-[#252525] border border-[#2C2C2E] text-xs font-mono text-gray-200 hover:text-white transition-colors"
+            class="flex items-center justify-between p-3 rounded-2xl glass-pill hover:bg-cyan-500/10 hover:border-cyan-400/30 text-xs font-medium text-slate-700 dark:text-slate-200 hover:text-cyan-600 dark:hover:text-cyan-300 transition-all group btn-expressive"
           >
-            <div class="flex items-center gap-2.5">
-              <span class="text-[#00E5FF]">✦</span>
+            <div class="flex items-center gap-3">
+              <div class="p-1.5 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-300 border border-cyan-500/20">
+                <Compass class="w-4 h-4" />
+              </div>
               <span>Explore Nyaa Releases</span>
             </div>
-            <span class="text-gray-500">→</span>
+            <ArrowUpRight class="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-cyan-600 dark:group-hover:text-cyan-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
           </a>
 
           <a
             href="/downloads"
-            class="flex items-center justify-between p-3 rounded-xl bg-[#121212] hover:bg-[#252525] border border-[#2C2C2E] text-xs font-mono text-gray-200 hover:text-white transition-colors"
+            class="flex items-center justify-between p-3 rounded-2xl glass-pill hover:bg-emerald-500/10 hover:border-emerald-400/30 text-xs font-medium text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-300 transition-all group btn-expressive"
           >
-            <div class="flex items-center gap-2.5">
-              <span class="text-[#32D74B]">↓</span>
+            <div class="flex items-center gap-3">
+              <div class="p-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border border-emerald-500/20">
+                <DownloadCloud class="w-4 h-4" />
+              </div>
               <span>Downloads Center</span>
             </div>
-            <span class="text-gray-500">→</span>
+            <ArrowUpRight class="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-emerald-600 dark:group-hover:text-emerald-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
           </a>
 
           <a
             href="/library"
-            class="flex items-center justify-between p-3 rounded-xl bg-[#121212] hover:bg-[#252525] border border-[#2C2C2E] text-xs font-mono text-gray-200 hover:text-white transition-colors"
+            class="flex items-center justify-between p-3 rounded-2xl glass-pill hover:bg-sky-500/10 hover:border-sky-400/30 text-xs font-medium text-slate-700 dark:text-slate-200 hover:text-sky-600 dark:hover:text-sky-300 transition-all group btn-expressive"
           >
-            <div class="flex items-center gap-2.5">
-              <span class="text-[#00E5FF]">📁</span>
+            <div class="flex items-center gap-3">
+              <div class="p-1.5 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-300 border border-sky-500/20">
+                <FolderKanban class="w-4 h-4" />
+              </div>
               <span>Library & Auto-Organize</span>
             </div>
-            <span class="text-gray-500">→</span>
+            <ArrowUpRight class="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-sky-600 dark:group-hover:text-sky-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
           </a>
 
           <a
             href="/encoder"
-            class="flex items-center justify-between p-3 rounded-xl bg-[#121212] hover:bg-[#252525] border border-[#2C2C2E] text-xs font-mono text-gray-200 hover:text-white transition-colors"
+            class="flex items-center justify-between p-3 rounded-2xl glass-pill hover:bg-purple-500/10 hover:border-purple-400/30 text-xs font-medium text-slate-700 dark:text-slate-200 hover:text-purple-600 dark:hover:text-purple-300 transition-all group btn-expressive"
           >
-            <div class="flex items-center gap-2.5">
-              <span class="text-[#32D74B]">⚙</span>
+            <div class="flex items-center gap-3">
+              <div class="p-1.5 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-300 border border-purple-500/20">
+                <Video class="w-4 h-4" />
+              </div>
               <span>Video Transcoder Queue</span>
             </div>
-            <span class="text-gray-500">→</span>
+            <ArrowUpRight class="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-purple-600 dark:group-hover:text-purple-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
           </a>
 
           <a
             href="/settings"
-            class="flex items-center justify-between p-3 rounded-xl bg-[#121212] hover:bg-[#252525] border border-[#2C2C2E] text-xs font-mono text-gray-200 hover:text-white transition-colors"
+            class="flex items-center justify-between p-3 rounded-2xl glass-pill hover:bg-slate-200/50 dark:hover:bg-slate-700/30 text-xs font-medium text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white transition-all group btn-expressive"
           >
-            <div class="flex items-center gap-2.5">
-              <span class="text-[#98989D]">🛠</span>
+            <div class="flex items-center gap-3">
+              <div class="p-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300/60 dark:border-white/10">
+                <Settings class="w-4 h-4" />
+              </div>
               <span>System Settings</span>
             </div>
-            <span class="text-gray-500">→</span>
+            <ArrowUpRight class="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-slate-900 dark:group-hover:text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
           </a>
         </div>
       </div>
 
       <!-- Storage Breakdown -->
-      <div class="bg-[#1E1E1E] border border-[#2C2C2E] rounded-2xl p-6 space-y-4">
-        <h2 class="text-xs font-bold font-mono text-[#98989D] uppercase tracking-wider border-b border-[#2C2C2E] pb-2">
+      <div class="glass-panel rounded-3xl p-5 space-y-4 border border-slate-200/80 dark:border-white/10 shadow-2xl">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200/80 dark:border-white/5 pb-2.5">
           Storage Breakdown
         </h2>
 
         <div class="space-y-4">
-          <div class="space-y-1.5">
+          <div class="space-y-2">
             <div class="flex justify-between text-xs font-mono">
-              <span class="text-gray-300">Organized Library</span>
-              <span class="text-[#00E5FF] font-bold">{formatBytes(library.totalSizeBytes)}</span>
+              <span class="text-slate-600 dark:text-slate-300">Organized Library</span>
+              <span class="text-cyan-600 dark:text-cyan-400 font-bold">{formatBytes(library.totalSizeBytes)}</span>
             </div>
-            <div class="w-full h-1.5 bg-[#2C2C2E] rounded-full overflow-hidden">
-              <div class="h-full bg-[#00E5FF]" style="width: 65%"></div>
+            <div class="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-900 overflow-hidden border border-slate-200 dark:border-white/5">
+              <div class="h-full rounded-full bg-gradient-to-r from-cyan-400 to-sky-400" style="width: 65%"></div>
             </div>
           </div>
 
-          <div class="space-y-1.5">
+          <div class="space-y-2">
             <div class="flex justify-between text-xs font-mono">
-              <span class="text-gray-300">Active Downloads</span>
-              <span class="text-[#32D74B] font-bold">
-                {formatBytes(torrents.jobs.reduce((acc, j) => acc + j.downloaded_bytes, 0))}
+              <span class="text-slate-600 dark:text-slate-300">Active Downloads</span>
+              <span class="text-emerald-600 dark:text-emerald-400 font-bold">
+                {formatBytes(torrents.jobs.reduce((acc: number, j: any) => acc + (j.downloaded_bytes || 0), 0))}
               </span>
             </div>
-            <div class="w-full h-1.5 bg-[#2C2C2E] rounded-full overflow-hidden">
-              <div class="h-full bg-[#32D74B]" style="width: 35%"></div>
+            <div class="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-900 overflow-hidden border border-slate-200 dark:border-white/5">
+              <div class="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-400" style="width: 35%"></div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Telemetry Health & Live Status -->
-      <div class="bg-[#1E1E1E] border border-[#2C2C2E] rounded-2xl p-6 space-y-4">
-        <h2 class="text-xs font-bold font-mono text-[#98989D] uppercase tracking-wider border-b border-[#2C2C2E] pb-2">
-          System Core Status
+      <!-- System Core Status -->
+      <div class="glass-panel rounded-3xl p-5 space-y-4 border border-slate-200/80 dark:border-white/10 shadow-2xl">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200/80 dark:border-white/5 pb-2.5">
+          System Core Telemetry
         </h2>
 
         <div class="space-y-2.5 text-xs font-mono">
-          <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#121212] border border-[#2C2C2E]">
-            <span class="text-gray-300">Backend Engine</span>
-            <span class="text-[#32D74B] font-semibold">ONLINE (Rust)</span>
+          <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-950/40 border border-slate-200/60 dark:border-white/5">
+            <span class="text-slate-700 dark:text-slate-300">Backend Engine</span>
+            <span class="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400"></span>
+              <span>ONLINE (Rust)</span>
+            </span>
           </div>
 
-          <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#121212] border border-[#2C2C2E]">
-            <span class="text-gray-300">Database</span>
-            <span class="text-[#32D74B] font-semibold">POSTGRESQL 19</span>
+          <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-950/40 border border-slate-200/60 dark:border-white/5">
+            <span class="text-slate-700 dark:text-slate-300">Database</span>
+            <span class="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400"></span>
+              <span>POSTGRESQL 19</span>
+            </span>
           </div>
 
-          <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#121212] border border-[#2C2C2E]">
-            <span class="text-gray-300">BitTorrent Daemon</span>
-            <span class="text-[#00E5FF] font-semibold">LIBRQBIT 9.1</span>
+          <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-950/40 border border-slate-200/60 dark:border-white/5">
+            <span class="text-slate-700 dark:text-slate-300">BitTorrent Daemon</span>
+            <span class="text-cyan-600 dark:text-cyan-400 font-semibold flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-cyan-500 dark:bg-cyan-400"></span>
+              <span>LIBRQBIT 9.1</span>
+            </span>
           </div>
 
-          <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#121212] border border-[#2C2C2E]">
-            <span class="text-gray-300">FFmpeg Pipeline</span>
-            <span class="text-[#32D74B] font-semibold">INITIALIZED</span>
+          <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-950/40 border border-slate-200/60 dark:border-white/5">
+            <span class="text-slate-700 dark:text-slate-300">FFmpeg Pipeline</span>
+            <span class="text-purple-600 dark:text-purple-400 font-semibold flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-purple-500 dark:bg-purple-400"></span>
+              <span>INITIALIZED</span>
+            </span>
           </div>
         </div>
       </div>
