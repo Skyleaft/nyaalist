@@ -14,11 +14,20 @@
   let page = $state<number>(1);
   let sortOrder = $state<'desc' | 'asc'>('desc');
 
-  // Modal State
-  let selectedAnime = $state<AnimeMetadata | null>(null);
+  // Modal State for Scraped Release
+  let selectedRelease = $state<NyaaRelease | null>(null);
+  let activeTab = $state<'nyaa' | 'metadata'>('nyaa');
   let copiedMagnetId = $state<number | null>(null);
   let downloadingIds = $state<Set<number>>(new Set());
   let downloadedSuccessIds = $state<Set<number>>(new Set());
+
+  // Modal-specific interactive states
+  let manualSyncTitle = $state<string>('');
+  let isSyncingMetadata = $state<boolean>(false);
+  let syncError = $state<string | null>(null);
+  let syncSuccess = $state<string | null>(null);
+  let detailCopiedMagnet = $state<boolean>(false);
+  let detailCopiedTitle = $state<boolean>(false);
 
   let ws: WebSocket | null = null;
 
@@ -132,14 +141,73 @@
     }, 2000);
   }
 
-  function openAnimeModal(meta?: AnimeMetadata | null) {
-    if (meta) {
-      selectedAnime = meta;
-    }
+  function openDetailModal(release: NyaaRelease, tab: 'nyaa' | 'metadata' = 'nyaa') {
+    selectedRelease = release;
+    activeTab = tab;
+    manualSyncTitle = release.parsed.anime_title || release.title;
+    syncError = null;
+    syncSuccess = null;
+    detailCopiedMagnet = false;
+    detailCopiedTitle = false;
   }
 
   function closeModal() {
-    selectedAnime = null;
+    selectedRelease = null;
+    syncError = null;
+    syncSuccess = null;
+  }
+
+  function copyDetailMagnet() {
+    if (!selectedRelease?.magnet_uri) return;
+    navigator.clipboard.writeText(selectedRelease.magnet_uri);
+    detailCopiedMagnet = true;
+    setTimeout(() => {
+      detailCopiedMagnet = false;
+    }, 2000);
+  }
+
+  function copyDetailTitle() {
+    if (!selectedRelease?.title) return;
+    navigator.clipboard.writeText(selectedRelease.title);
+    detailCopiedTitle = true;
+    setTimeout(() => {
+      detailCopiedTitle = false;
+    }, 2000);
+  }
+
+  async function handleManualSync() {
+    if (!selectedRelease || !manualSyncTitle.trim()) return;
+    isSyncingMetadata = true;
+    syncError = null;
+    syncSuccess = null;
+    try {
+      const meta = await api.explore.syncMetadata(manualSyncTitle.trim(), selectedRelease.id);
+      if (meta) {
+        selectedRelease.anilist_metadata = meta;
+        const currentTitle = (selectedRelease.parsed.anime_title || '').toLowerCase();
+        for (let i = 0; i < releases.length; i++) {
+          if (
+            releases[i].id === selectedRelease.id ||
+            (currentTitle && releases[i].parsed?.anime_title?.toLowerCase() === currentTitle)
+          ) {
+            releases[i].anilist_metadata = meta;
+          }
+        }
+        syncSuccess = 'AniList metadata synced successfully!';
+      } else {
+        syncError = 'No matching anime found on AniList for this title query.';
+      }
+    } catch (err: any) {
+      syncError = err.message || 'Failed to sync metadata with AniList.';
+    } finally {
+      isSyncingMetadata = false;
+    }
+  }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape' && selectedRelease) {
+      closeModal();
+    }
   }
 
   onMount(() => {
@@ -159,6 +227,13 @@
                   releases[i].anilist_metadata = msg.data.metadata;
                 }
               }
+              if (
+                selectedRelease &&
+                selectedRelease.parsed?.anime_title &&
+                selectedRelease.parsed.anime_title.toLowerCase() === syncedTitle
+              ) {
+                selectedRelease.anilist_metadata = msg.data.metadata;
+              }
             }
           } catch (_) {}
         };
@@ -170,6 +245,8 @@
     };
   });
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <svelte:head>
   <title>Nyaa Explorer & AniList Sync - Nyaalist</title>
@@ -311,7 +388,7 @@
             </th>
             <th class="py-3 px-4 w-24">Size</th>
             <th class="py-3 px-4 w-24">S / L</th>
-            <th class="py-3 px-4 w-28 text-right">Actions</th>
+            <th class="py-3 px-4 w-40 text-right">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-[#2C2C2E]">
@@ -330,38 +407,38 @@
             </tr>
           {:else}
             {#each releases as release (release.id)}
-              <tr class="hover:bg-[#252525] transition-colors group">
+              <tr
+                class="hover:bg-[#252525] transition-colors group cursor-pointer"
+                onclick={() => openDetailModal(release, 'nyaa')}
+              >
                 <!-- Cover Image Thumbnail -->
                 <td class="py-3 px-4">
-                  {#if release.anilist_metadata?.cover_image_local_path}
-                    <button
-                      onclick={() => openAnimeModal(release.anilist_metadata)}
-                      class="block w-10 h-14 rounded overflow-hidden border border-[#2C2C2E] hover:border-[#00E5FF] transition-colors cursor-pointer bg-[#121212]"
-                    >
+                  <button
+                    type="button"
+                    onclick={(e) => { e.stopPropagation(); openDetailModal(release, 'nyaa'); }}
+                    class="block w-10 h-14 rounded overflow-hidden border border-[#2C2C2E] group-hover:border-[#00E5FF] transition-colors cursor-pointer bg-[#121212]"
+                    title="View details for {release.parsed.anime_title}"
+                  >
+                    {#if release.anilist_metadata?.cover_image_local_path}
                       <img
                         src={release.anilist_metadata.cover_image_local_path}
                         alt="Anime Poster"
                         class="w-full h-full object-cover"
                         loading="lazy"
                       />
-                    </button>
-                  {:else if release.anilist_metadata?.cover_image_url}
-                    <button
-                      onclick={() => openAnimeModal(release.anilist_metadata)}
-                      class="block w-10 h-14 rounded overflow-hidden border border-[#2C2C2E] hover:border-[#00E5FF] transition-colors cursor-pointer bg-[#121212]"
-                    >
+                    {:else if release.anilist_metadata?.cover_image_url}
                       <img
                         src={release.anilist_metadata.cover_image_url}
                         alt="Anime Poster"
                         class="w-full h-full object-cover"
                         loading="lazy"
                       />
-                    </button>
-                  {:else}
-                    <div class="w-10 h-14 rounded bg-[#121212] border border-[#2C2C2E] flex items-center justify-center text-[10px] text-gray-600 font-mono">
-                      N/A
-                    </div>
-                  {/if}
+                    {:else}
+                      <div class="w-full h-full flex items-center justify-center text-[10px] text-gray-500 font-mono">
+                        N/A
+                      </div>
+                    {/if}
+                  </button>
                 </td>
 
                 <!-- Release Title & Badges -->
@@ -370,16 +447,20 @@
                     {#if release.parsed.uploader}
                       <button
                         type="button"
-                        onclick={() => filterByUploader(release.parsed.uploader)}
+                        onclick={(e) => { e.stopPropagation(); filterByUploader(release.parsed.uploader); }}
                         class="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-[#121212] text-[#00E5FF] hover:bg-[#00E5FF]/20 border border-[#2C2C2E] transition-colors cursor-pointer"
                         title="Filter by uploader @{release.parsed.uploader}"
                       >
                         [{release.parsed.uploader}]
                       </button>
                     {/if}
-                    <span class="text-sm font-semibold text-white group-hover:text-[#00E5FF] transition-colors">
+                    <button
+                      type="button"
+                      onclick={(e) => { e.stopPropagation(); openDetailModal(release, 'nyaa'); }}
+                      class="text-sm font-semibold text-white group-hover:text-[#00E5FF] transition-colors text-left cursor-pointer"
+                    >
                       {release.parsed.anime_title}
-                    </span>
+                    </button>
                     {#if release.parsed.episode}
                       <span class="text-xs font-mono font-bold px-1.5 py-0.2 rounded bg-[#121212] text-[#32D74B] border border-[#2C2C2E]">
                         EP {release.parsed.episode}
@@ -420,8 +501,10 @@
                 <td class="py-3 px-4">
                   {#if release.anilist_metadata}
                     <button
-                      onclick={() => openAnimeModal(release.anilist_metadata)}
+                      type="button"
+                      onclick={(e) => { e.stopPropagation(); openDetailModal(release, 'metadata'); }}
                       class="text-left group/meta cursor-pointer"
+                      title="View AniList metadata"
                     >
                       <div class="text-xs font-semibold text-white group-hover/meta:text-[#00E5FF] line-clamp-1 transition-colors">
                         {release.anilist_metadata.title_english || release.anilist_metadata.title_romaji}
@@ -437,7 +520,14 @@
                       </div>
                     </button>
                   {:else}
-                    <span class="text-xs font-mono text-gray-500 italic">No match</span>
+                    <button
+                      type="button"
+                      onclick={(e) => { e.stopPropagation(); openDetailModal(release, 'metadata'); }}
+                      class="text-xs font-mono text-gray-500 hover:text-[#00E5FF] italic transition-colors cursor-pointer text-left"
+                      title="Click to view or sync metadata"
+                    >
+                      No match (Sync)
+                    </button>
                   {/if}
                 </td>
 
@@ -462,7 +552,16 @@
                 <td class="py-3 px-4 text-right whitespace-nowrap">
                   <div class="flex items-center justify-end gap-1.5">
                     <button
-                      onclick={() => downloadRelease(release)}
+                      type="button"
+                      onclick={(e) => { e.stopPropagation(); openDetailModal(release, 'nyaa'); }}
+                      class="px-2 py-1 rounded-lg text-xs font-mono bg-[#121212] hover:bg-[#252525] border border-[#2C2C2E] text-white hover:text-[#00E5FF] transition-colors cursor-pointer"
+                      title="View release detail modal"
+                    >
+                      Detail
+                    </button>
+                    <button
+                      type="button"
+                      onclick={(e) => { e.stopPropagation(); downloadRelease(release); }}
                       disabled={downloadingIds.has(release.id)}
                       class="px-2.5 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer flex items-center gap-1.5 {
                         downloadedSuccessIds.has(release.id)
@@ -481,7 +580,8 @@
                       {/if}
                     </button>
                     <button
-                      onclick={() => copyMagnet(release)}
+                      type="button"
+                      onclick={(e) => { e.stopPropagation(); copyMagnet(release); }}
                       class="px-2.5 py-1 rounded-lg text-xs font-mono bg-[#121212] hover:bg-[#252525] border border-[#2C2C2E] text-white transition-colors cursor-pointer"
                       title="Copy Magnet Link"
                     >
@@ -521,73 +621,464 @@
   </div>
 </div>
 
-<!-- AniList Metadata Detail Modal -->
-{#if selectedAnime}
-  <div class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-[#1E1E1E] border border-[#2C2C2E] rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative space-y-4">
-      <button
-        onclick={closeModal}
-        class="absolute top-4 right-4 text-gray-400 hover:text-white font-mono text-sm cursor-pointer"
-      >
-        ✕
-      </button>
-
-      <div class="flex gap-4">
-        {#if selectedAnime.cover_image_local_path || selectedAnime.cover_image_url}
-          <img
-            src={selectedAnime.cover_image_local_path || selectedAnime.cover_image_url}
-            alt={selectedAnime.title_romaji}
-            class="w-28 h-40 object-cover rounded-xl border border-[#2C2C2E] shrink-0"
-          />
-        {/if}
-
-        <div class="space-y-1.5 flex-1 min-w-0">
-          <h2 class="text-lg font-bold text-white tracking-tight line-clamp-1">
-            {selectedAnime.title_english || selectedAnime.title_romaji}
+<!-- Scraped Item Detail Modal (2 Tabs: Detail from Nyaa & Metadata) -->
+{#if selectedRelease}
+  <div
+    class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 md:p-6 overflow-y-auto"
+    tabindex="-1"
+    role="presentation"
+    onclick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
+    onkeydown={(e) => { if (e.key === 'Escape') closeModal(); }}
+  >
+    <div
+      class="bg-[#1E1E1E] border border-[#2C2C2E] rounded-2xl max-w-3xl w-full my-auto shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-release-title"
+      tabindex="-1"
+    >
+      <!-- Modal Header -->
+      <div class="p-5 border-b border-[#2C2C2E] bg-[#161616] flex items-start justify-between gap-4">
+        <div class="space-y-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="px-2 py-0.5 rounded bg-[#121212] border border-[#2C2C2E] text-[10px] font-mono text-[#00E5FF]">
+              Nyaa #{selectedRelease.id}
+            </span>
+            <span class="px-2 py-0.5 rounded bg-[#121212] border border-[#2C2C2E] text-[10px] font-mono text-[#98989D]">
+              {selectedRelease.category}
+            </span>
+            {#if selectedRelease.parsed.uploader || selectedRelease.uploader}
+              <span class="px-2 py-0.5 rounded bg-[#121212] border border-[#2C2C2E] text-[10px] font-mono text-purple-400">
+                @{selectedRelease.parsed.uploader || selectedRelease.uploader}
+              </span>
+            {/if}
+            {#if selectedRelease.parsed.episode}
+              <span class="px-2 py-0.5 rounded bg-[#121212] border border-[#2C2C2E] text-[10px] font-mono font-bold text-[#32D74B]">
+                EP {selectedRelease.parsed.episode}
+              </span>
+            {/if}
+          </div>
+          <h2 id="modal-release-title" class="text-lg font-bold text-white tracking-tight truncate">
+            {selectedRelease.parsed.anime_title || selectedRelease.title}
           </h2>
-          <div class="text-xs font-mono text-[#00E5FF] line-clamp-1">
-            {selectedAnime.title_romaji}
-          </div>
-
-          <div class="flex items-center gap-2 text-xs font-mono pt-1">
-            {#if selectedAnime.average_score}
-              <span class="px-2 py-0.5 rounded bg-[#121212] text-[#32D74B] border border-[#2C2C2E] font-bold">
-                ★ {selectedAnime.average_score}%
-              </span>
-            {/if}
-            <span class="px-2 py-0.5 rounded bg-[#121212] text-gray-300 border border-[#2C2C2E]">
-              {selectedAnime.format || 'TV'}
-            </span>
-            <span class="px-2 py-0.5 rounded bg-[#121212] text-gray-300 border border-[#2C2C2E]">
-              {selectedAnime.status || 'RELEASING'}
-            </span>
-            {#if selectedAnime.episodes}
-              <span class="text-[#98989D]">
-                {selectedAnime.episodes} Episodes
-              </span>
-            {/if}
-          </div>
-
-          {#if selectedAnime.genres && selectedAnime.genres.length > 0}
-            <div class="flex items-center gap-1 flex-wrap pt-1.5">
-              {#each selectedAnime.genres as genre}
-                <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#121212] text-[#98989D] border border-[#2C2C2E]">
-                  {genre}
-                </span>
-              {/each}
-            </div>
-          {/if}
-        </div>
-      </div>
-
-      {#if selectedAnime.description}
-        <div class="border-t border-[#2C2C2E] pt-3">
-          <h3 class="text-xs font-mono uppercase text-[#98989D] mb-1">Synopsis</h3>
-          <p class="text-xs text-gray-300 leading-relaxed max-h-48 overflow-y-auto pr-2">
-            {@html selectedAnime.description}
+          <p class="text-xs text-[#98989D] font-mono line-clamp-1" title={selectedRelease.title}>
+            {selectedRelease.title}
           </p>
         </div>
-      {/if}
+
+        <button
+          onclick={closeModal}
+          class="text-gray-400 hover:text-white p-1.5 rounded-lg bg-[#121212] hover:bg-[#252525] border border-[#2C2C2E] transition-colors font-mono text-sm cursor-pointer shrink-0"
+          title="Close modal (Esc)"
+        >
+          ✕
+        </button>
+      </div>
+
+      <!-- Tab Navigation (2 Tabs: Detail from Nyaa & Metadata) -->
+      <div class="flex border-b border-[#2C2C2E] bg-[#121212] px-5 text-xs font-mono">
+        <button
+          type="button"
+          onclick={() => activeTab = 'nyaa'}
+          class="py-3 px-4 font-semibold border-b-2 transition-all cursor-pointer flex items-center gap-2 {
+            activeTab === 'nyaa'
+              ? 'border-[#00E5FF] text-[#00E5FF] bg-[#1E1E1E]/60'
+              : 'border-transparent text-[#98989D] hover:text-white hover:bg-[#1E1E1E]/30'
+          }"
+        >
+          <span>Detail from Nyaa</span>
+          <span class="text-[10px] px-1.5 py-0.2 rounded bg-[#1E1E1E] text-gray-400 border border-[#2C2C2E]">
+            {selectedRelease.file_size_formatted}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onclick={() => activeTab = 'metadata'}
+          class="py-3 px-4 font-semibold border-b-2 transition-all cursor-pointer flex items-center gap-2 {
+            activeTab === 'metadata'
+              ? 'border-[#00E5FF] text-[#00E5FF] bg-[#1E1E1E]/60'
+              : 'border-transparent text-[#98989D] hover:text-white hover:bg-[#1E1E1E]/30'
+          }"
+        >
+          <span>Metadata</span>
+          {#if selectedRelease.anilist_metadata}
+            <span class="text-[10px] px-1.5 py-0.2 rounded bg-[#32D74B]/20 text-[#32D74B] border border-[#32D74B]/30 font-bold">
+              ✓ Synced
+            </span>
+          {:else}
+            <span class="text-[10px] px-1.5 py-0.2 rounded bg-gray-800 text-gray-400 border border-[#2C2C2E]">
+              Unsynced
+            </span>
+          {/if}
+        </button>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div class="p-6 overflow-y-auto space-y-5 flex-1">
+        {#if activeTab === 'nyaa'}
+          <!-- TAB 1: DETAIL FROM NYAA -->
+          <div class="space-y-5">
+            <!-- Full Title Card -->
+            <div class="bg-[#121212] border border-[#2C2C2E] rounded-xl p-4 space-y-2">
+              <div class="flex items-center justify-between text-[11px] font-mono text-[#98989D] uppercase">
+                <span>Original Release Title</span>
+                <button
+                  type="button"
+                  onclick={copyDetailTitle}
+                  class="text-[#00E5FF] hover:underline cursor-pointer flex items-center gap-1 font-mono text-[10px]"
+                >
+                  {detailCopiedTitle ? '✓ Copied' : 'Copy Full Title'}
+                </button>
+              </div>
+              <div class="font-mono text-xs text-gray-200 select-all break-all bg-[#1E1E1E] p-2.5 rounded-lg border border-[#2C2C2E]">
+                {selectedRelease.title}
+              </div>
+            </div>
+
+            <!-- Swarm & Metrics Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+              <div class="bg-[#121212] border border-[#2C2C2E] rounded-xl p-3 text-center">
+                <span class="text-[10px] uppercase text-[#98989D] block">File Size</span>
+                <span class="text-sm font-bold text-white mt-1 block">{selectedRelease.file_size_formatted}</span>
+                <span class="text-[10px] text-gray-500 block truncate" title="{selectedRelease.file_size_bytes} bytes">
+                  {selectedRelease.file_size_bytes.toLocaleString()} B
+                </span>
+              </div>
+
+              <div class="bg-[#121212] border border-[#2C2C2E] rounded-xl p-3 text-center">
+                <span class="text-[10px] uppercase text-[#98989D] block">Seeders</span>
+                <span class="text-sm font-bold text-[#32D74B] mt-1 block">▲ {selectedRelease.seeders}</span>
+                <span class="text-[10px] text-gray-500 block">Active uploaders</span>
+              </div>
+
+              <div class="bg-[#121212] border border-[#2C2C2E] rounded-xl p-3 text-center">
+                <span class="text-[10px] uppercase text-[#98989D] block">Leechers</span>
+                <span class="text-sm font-bold text-[#FF453A] mt-1 block">▼ {selectedRelease.leechers}</span>
+                <span class="text-[10px] text-gray-500 block">Downloading</span>
+              </div>
+
+              <div class="bg-[#121212] border border-[#2C2C2E] rounded-xl p-3 text-center">
+                <span class="text-[10px] uppercase text-[#98989D] block">Completed</span>
+                <span class="text-sm font-bold text-[#00E5FF] mt-1 block">✓ {selectedRelease.completed_count}</span>
+                <span class="text-[10px] text-gray-500 block">Total snatches</span>
+              </div>
+            </div>
+
+            <!-- Technical Specifications Grid -->
+            <div class="bg-[#121212] border border-[#2C2C2E] rounded-xl p-4 space-y-3">
+              <h3 class="text-xs font-mono uppercase text-[#98989D] tracking-wider border-b border-[#2C2C2E] pb-2">
+                Parsed Technical Specifications
+              </h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5 text-xs font-mono">
+                <div class="flex items-center justify-between border-b border-[#2C2C2E]/40 pb-1.5">
+                  <span class="text-[#98989D]">Anime Title:</span>
+                  <span class="text-white font-semibold truncate max-w-[200px]" title={selectedRelease.parsed.anime_title}>
+                    {selectedRelease.parsed.anime_title || 'N/A'}
+                  </span>
+                </div>
+                <div class="flex items-center justify-between border-b border-[#2C2C2E]/40 pb-1.5">
+                  <span class="text-[#98989D]">Episode:</span>
+                  <span class="text-[#32D74B] font-bold">
+                    {selectedRelease.parsed.episode ? `EP ${selectedRelease.parsed.episode}` : 'N/A (Batch/Movie)'}
+                  </span>
+                </div>
+                <div class="flex items-center justify-between border-b border-[#2C2C2E]/40 pb-1.5">
+                  <span class="text-[#98989D]">Resolution:</span>
+                  <span class="text-gray-200">
+                    {selectedRelease.parsed.resolution || 'N/A'}
+                  </span>
+                </div>
+                <div class="flex items-center justify-between border-b border-[#2C2C2E]/40 pb-1.5">
+                  <span class="text-[#98989D]">Video Codec:</span>
+                  <span class="text-gray-200">
+                    {selectedRelease.parsed.codec || 'N/A'}
+                  </span>
+                </div>
+                <div class="flex items-center justify-between border-b border-[#2C2C2E]/40 pb-1.5">
+                  <span class="text-[#98989D]">Audio Codec:</span>
+                  <span class="text-gray-200">
+                    {selectedRelease.parsed.audio || 'N/A'}
+                  </span>
+                </div>
+                <div class="flex items-center justify-between border-b border-[#2C2C2E]/40 pb-1.5">
+                  <span class="text-[#98989D]">Source:</span>
+                  <span class="text-gray-200">
+                    {selectedRelease.parsed.source || 'N/A'}
+                  </span>
+                </div>
+                <div class="flex items-center justify-between border-b border-[#2C2C2E]/40 pb-1.5">
+                  <span class="text-[#98989D]">Checksum (CRC32):</span>
+                  <span class="text-[#00E5FF]">
+                    {selectedRelease.parsed.crc32 ? `[${selectedRelease.parsed.crc32}]` : 'N/A'}
+                  </span>
+                </div>
+                <div class="flex items-center justify-between border-b border-[#2C2C2E]/40 pb-1.5">
+                  <span class="text-[#98989D]">Uploader:</span>
+                  <span class="text-purple-400">
+                    {selectedRelease.parsed.uploader || selectedRelease.uploader || 'Anonymous'}
+                  </span>
+                </div>
+                <div class="flex items-center justify-between border-b border-[#2C2C2E]/40 pb-1.5">
+                  <span class="text-[#98989D]">Date Uploaded:</span>
+                  <span class="text-gray-300" title={formatFullDate(selectedRelease.nyaa_created_at)}>
+                    {formatDate(selectedRelease.nyaa_created_at)}
+                  </span>
+                </div>
+                <div class="flex items-center justify-between border-b border-[#2C2C2E]/40 pb-1.5">
+                  <span class="text-[#98989D]">Category:</span>
+                  <span class="text-gray-300">
+                    {selectedRelease.category}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Magnet URI Details -->
+            <div class="bg-[#121212] border border-[#2C2C2E] rounded-xl p-4 space-y-2">
+              <div class="flex items-center justify-between text-[11px] font-mono text-[#98989D] uppercase">
+                <span>Magnet URI</span>
+                <button
+                  type="button"
+                  onclick={copyDetailMagnet}
+                  class="text-[#00E5FF] hover:underline cursor-pointer flex items-center gap-1 font-mono text-[10px]"
+                >
+                  {detailCopiedMagnet ? '✓ Copied' : 'Copy Magnet URI'}
+                </button>
+              </div>
+              <div class="font-mono text-[11px] text-gray-400 select-all break-all bg-[#1E1E1E] p-2.5 rounded-lg border border-[#2C2C2E] max-h-20 overflow-y-auto">
+                {selectedRelease.magnet_uri}
+              </div>
+            </div>
+
+            <!-- Action Buttons Footer inside Nyaa Tab -->
+            <div class="flex items-center justify-between gap-3 pt-2 flex-wrap">
+              <div class="flex items-center gap-2">
+                <a
+                  href="https://nyaa.si/view/{selectedRelease.id}"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="px-3.5 py-2 rounded-xl text-xs font-mono bg-[#121212] hover:bg-[#252525] border border-[#2C2C2E] text-white hover:text-[#00E5FF] transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>Nyaa.si</span>
+                  <span class="text-[10px]">↗</span>
+                </a>
+                {#if selectedRelease.torrent_file_url}
+                  <a
+                    href="https://nyaa.si{selectedRelease.torrent_file_url}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="px-3.5 py-2 rounded-xl text-xs font-mono bg-[#121212] hover:bg-[#252525] border border-[#2C2C2E] text-white hover:text-[#00E5FF] transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>.torrent</span>
+                    <span class="text-[10px]">↓</span>
+                  </a>
+                {/if}
+              </div>
+
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  onclick={() => copyDetailMagnet()}
+                  class="px-3.5 py-2 rounded-xl text-xs font-mono bg-[#121212] hover:bg-[#252525] border border-[#2C2C2E] text-white transition-colors cursor-pointer"
+                >
+                  {detailCopiedMagnet ? '✓ Magnet Copied' : 'Copy Magnet'}
+                </button>
+                <button
+                  type="button"
+                  onclick={() => selectedRelease && downloadRelease(selectedRelease)}
+                  disabled={downloadingIds.has(selectedRelease.id)}
+                  class="px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 {
+                    downloadedSuccessIds.has(selectedRelease.id)
+                      ? 'bg-[#32D74B]/20 text-[#32D74B] border border-[#32D74B]/40'
+                      : 'bg-[#00E5FF] hover:bg-[#00c8e0] text-[#121212]'
+                  }"
+                >
+                  {#if downloadingIds.has(selectedRelease.id)}
+                    <span class="inline-block animate-spin w-3 h-3 border-2 border-[#121212] border-t-transparent rounded-full"></span>
+                    Starting Download...
+                  {:else if downloadedSuccessIds.has(selectedRelease.id)}
+                    ✓ Added to Downloader
+                  {:else}
+                    ↓ Start Download
+                  {/if}
+                </button>
+              </div>
+            </div>
+          </div>
+        {:else}
+          <!-- TAB 2: METADATA -->
+          <div class="space-y-5">
+            {#if selectedRelease.anilist_metadata}
+              <!-- Hero Section with Poster and Info -->
+              <div class="space-y-4">
+                {#if selectedRelease.anilist_metadata.banner_image_url}
+                  <div class="w-full h-32 rounded-xl overflow-hidden border border-[#2C2C2E] relative bg-[#121212]">
+                    <img
+                      src={selectedRelease.anilist_metadata.banner_image_url}
+                      alt="Banner"
+                      class="w-full h-full object-cover opacity-70"
+                    />
+                    <div class="absolute inset-0 bg-gradient-to-t from-[#1E1E1E] to-transparent"></div>
+                  </div>
+                {/if}
+
+                <div class="flex flex-col sm:flex-row gap-5 items-start">
+                  {#if selectedRelease.anilist_metadata.cover_image_local_path || selectedRelease.anilist_metadata.cover_image_url}
+                    <img
+                      src={selectedRelease.anilist_metadata.cover_image_local_path || selectedRelease.anilist_metadata.cover_image_url}
+                      alt={selectedRelease.anilist_metadata.title_romaji}
+                      class="w-32 h-44 object-cover rounded-xl border border-[#2C2C2E] shrink-0 bg-[#121212] shadow-lg"
+                    />
+                  {/if}
+
+                  <div class="space-y-2 flex-1 min-w-0">
+                    <h3 class="text-xl font-bold text-white tracking-tight">
+                      {selectedRelease.anilist_metadata.title_english || selectedRelease.anilist_metadata.title_romaji}
+                    </h3>
+                    <div class="text-xs font-mono text-[#00E5FF]">
+                      {selectedRelease.anilist_metadata.title_romaji}
+                    </div>
+                    {#if selectedRelease.anilist_metadata.title_native}
+                      <div class="text-xs text-[#98989D]">
+                        {selectedRelease.anilist_metadata.title_native}
+                      </div>
+                    {/if}
+
+                    <div class="flex items-center gap-2 flex-wrap text-xs font-mono pt-1">
+                      {#if selectedRelease.anilist_metadata.average_score}
+                        <span class="px-2 py-0.5 rounded bg-[#121212] text-[#32D74B] border border-[#2C2C2E] font-bold">
+                          ★ {selectedRelease.anilist_metadata.average_score}%
+                        </span>
+                      {/if}
+                      <span class="px-2 py-0.5 rounded bg-[#121212] text-gray-300 border border-[#2C2C2E]">
+                        {selectedRelease.anilist_metadata.format || 'TV'}
+                      </span>
+                      <span class="px-2 py-0.5 rounded bg-[#121212] text-gray-300 border border-[#2C2C2E]">
+                        {selectedRelease.anilist_metadata.status || 'RELEASING'}
+                      </span>
+                      {#if selectedRelease.anilist_metadata.episodes}
+                        <span class="px-2 py-0.5 rounded bg-[#121212] text-[#98989D] border border-[#2C2C2E]">
+                          {selectedRelease.anilist_metadata.episodes} Episodes
+                        </span>
+                      {/if}
+                      {#if selectedRelease.anilist_metadata.season || selectedRelease.anilist_metadata.season_year}
+                        <span class="px-2 py-0.5 rounded bg-[#121212] text-gray-400 border border-[#2C2C2E]">
+                          {selectedRelease.anilist_metadata.season || ''} {selectedRelease.anilist_metadata.season_year || ''}
+                        </span>
+                      {/if}
+                    </div>
+
+                    <!-- External Links -->
+                    <div class="flex items-center gap-2 pt-1 text-xs font-mono">
+                      <a
+                        href="https://anilist.co/anime/{selectedRelease.anilist_metadata.id}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-[#00E5FF] hover:underline flex items-center gap-1"
+                      >
+                        AniList #{selectedRelease.anilist_metadata.id} ↗
+                      </a>
+                      {#if selectedRelease.anilist_metadata.mal_id}
+                        <span class="text-gray-600">•</span>
+                        <a
+                          href="https://myanimelist.net/anime/{selectedRelease.anilist_metadata.mal_id}"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="text-[#2E51A2] hover:underline flex items-center gap-1 font-semibold"
+                        >
+                          MyAnimeList #{selectedRelease.anilist_metadata.mal_id} ↗
+                        </a>
+                      {/if}
+                    </div>
+
+                    {#if selectedRelease.anilist_metadata.genres && selectedRelease.anilist_metadata.genres.length > 0}
+                      <div class="flex items-center gap-1.5 flex-wrap pt-1">
+                        {#each selectedRelease.anilist_metadata.genres as genre}
+                          <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#121212] text-[#98989D] border border-[#2C2C2E]">
+                            {genre}
+                          </span>
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+                </div>
+
+                {#if selectedRelease.anilist_metadata.description}
+                  <div class="bg-[#121212] border border-[#2C2C2E] rounded-xl p-4 space-y-2">
+                    <h4 class="text-xs font-mono uppercase text-[#98989D]">Synopsis</h4>
+                    <div class="text-xs text-gray-300 leading-relaxed max-h-48 overflow-y-auto pr-2 space-y-1">
+                      {@html selectedRelease.anilist_metadata.description}
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            {:else}
+              <!-- Unsynced State -->
+              <div class="bg-[#121212] border border-[#2C2C2E] rounded-xl p-8 text-center space-y-4">
+                <div class="w-12 h-12 mx-auto rounded-full bg-[#1E1E1E] border border-[#2C2C2E] flex items-center justify-center text-xl text-[#00E5FF]">
+                  ?
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-white font-mono">No AniList Metadata Match</h3>
+                  <p class="text-xs text-[#98989D] max-w-md mx-auto mt-1">
+                    No metadata has been synchronized yet for title
+                    <span class="text-[#00E5FF] font-semibold">"{selectedRelease.parsed.anime_title || selectedRelease.title}"</span>.
+                  </p>
+                </div>
+              </div>
+            {/if}
+
+            <!-- Sync / Re-sync Query Box -->
+            <div class="bg-[#121212] border border-[#2C2C2E] rounded-xl p-4 space-y-3">
+              <div class="flex items-center justify-between text-xs font-mono">
+                <span class="text-[#98989D] uppercase text-[10px]">
+                  {selectedRelease.anilist_metadata ? 'Re-sync / Match with Different Title' : 'Sync Metadata with AniList'}
+                </span>
+                {#if selectedRelease.anilist_metadata?.last_synced_at}
+                  <span class="text-[10px] text-gray-500">
+                    Last synced: {formatDate(selectedRelease.anilist_metadata.last_synced_at)}
+                  </span>
+                {/if}
+              </div>
+
+              {#if syncError}
+                <div class="p-2.5 rounded-lg bg-[#3A1C1C] border border-[#FF453A]/40 text-xs font-mono text-[#FF453A]">
+                  {syncError}
+                </div>
+              {/if}
+
+              {#if syncSuccess}
+                <div class="p-2.5 rounded-lg bg-[#1C3A24] border border-[#32D74B]/40 text-xs font-mono text-[#32D74B]">
+                  {syncSuccess}
+                </div>
+              {/if}
+
+              <div class="flex gap-2">
+                <input
+                  type="text"
+                  bind:value={manualSyncTitle}
+                  placeholder="Enter anime title (e.g. Frieren: Beyond Journey's End)"
+                  class="flex-1 bg-[#1E1E1E] border border-[#2C2C2E] rounded-xl px-3 py-2 text-xs font-mono text-white placeholder-gray-600 focus:outline-none focus:border-[#00E5FF]"
+                />
+                <button
+                  type="button"
+                  onclick={handleManualSync}
+                  disabled={isSyncingMetadata || !manualSyncTitle.trim()}
+                  class="bg-[#00E5FF] hover:bg-[#00c8e0] text-[#121212] font-bold text-xs font-mono px-4 py-2 rounded-xl transition-all cursor-pointer disabled:opacity-40 flex items-center gap-1.5 shrink-0"
+                >
+                  {#if isSyncingMetadata}
+                    <span class="inline-block animate-spin w-3 h-3 border-2 border-[#121212] border-t-transparent rounded-full"></span>
+                    Syncing...
+                  {:else}
+                    Sync AniList
+                  {/if}
+                </button>
+              </div>
+            </div>
+          </div>
+        {/if}
+      </div>
     </div>
   </div>
 {/if}
