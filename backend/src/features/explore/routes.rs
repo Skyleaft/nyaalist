@@ -8,14 +8,20 @@ use axum::{
 
 use crate::core::error::AppError;
 use crate::core::state::AppState;
-use crate::features::explore::models::{AnimeMetadata, ExploreQuery, NyaaRelease, SyncRequest};
-use crate::features::explore::nyaa_scraper::{scrape_nyaa_category, scrape_nyaa_user};
+use crate::features::explore::models::{
+    AnimeMetadata, ExploreQuery, NyaaRelease, NyaaReleaseDetail, SyncRequest,
+};
+use crate::features::explore::nyaa_scraper::{
+    scrape_nyaa_category, scrape_nyaa_user, scrape_nyaa_view,
+};
 use crate::features::explore::title_parser::parse_release_title;
 
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/latest", get(get_latest_releases))
         .route("/user/:username", get(get_user_releases))
+        .route("/view/:id", get(get_release_detail))
+        .route("/detail/:id", get(get_release_detail))
         .route("/sync", post(sync_title_metadata))
 }
 
@@ -110,6 +116,31 @@ async fn get_user_releases(
     }
 
     Ok(Json(releases))
+}
+
+async fn get_release_detail(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<NyaaReleaseDetail>, AppError> {
+    let mut detail = scrape_nyaa_view(
+        &state.config.nyaa_base_url,
+        id,
+        &state.config.nyaa_user_agent,
+    )
+    .await?;
+
+    if !detail.parsed.anime_title.is_empty() {
+        let metadata_map = state
+            .anilist_client
+            .resolve_titles_batch(&state.db, &[detail.parsed.anime_title.clone()])
+            .await;
+
+        if let Some(meta) = metadata_map.get(&detail.parsed.anime_title) {
+            detail.anilist_metadata = Some(meta.clone());
+        }
+    }
+
+    Ok(Json(detail))
 }
 
 async fn sync_title_metadata(
