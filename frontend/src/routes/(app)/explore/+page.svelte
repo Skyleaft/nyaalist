@@ -1,5 +1,7 @@
 <script lang="ts">
   import { api, getWebSocketUrl } from '#lib/api/client';
+  import { auth } from '#lib/stores/auth.svelte';
+  import { goto } from '$app/navigation';
   import type { NyaaRelease, NyaaReleaseDetail, NyaaFileItem, AnimeMetadata } from '#lib/api/types';
   import { onMount } from 'svelte';
   import { marked } from 'marked';
@@ -53,6 +55,10 @@
 
   async function downloadRelease(rel: NyaaRelease) {
     if (!rel.magnet_uri) return;
+    if (!auth.isAuthenticated) {
+      goto('/login?redirect=/explore');
+      return;
+    }
     downloadingIds = new Set(downloadingIds).add(rel.id);
     try {
       await api.downloader.add({ magnet_uri: rel.magnet_uri, nyaa_id: rel.id });
@@ -231,6 +237,10 @@
 
   async function handleManualSync() {
     if (!selectedRelease || !manualSyncTitle.trim()) return;
+    if (!auth.isAuthenticated) {
+      syncError = 'Authentication required. Please sign in to sync metadata.';
+      return;
+    }
     isSyncingMetadata = true;
     syncError = null;
     syncSuccess = null;
@@ -1298,27 +1308,34 @@
                 </div>
               {/if}
 
-              <div class="flex gap-2">
-                <input
-                  type="text"
-                  bind:value={manualSyncTitle}
-                  placeholder="Enter anime title (e.g. Frieren: Beyond Journey's End)"
-                  class="flex-1 bg-[#1E1E1E] border border-[#2C2C2E] rounded-xl px-3 py-2 text-xs font-mono text-white placeholder-gray-600 focus:outline-none focus:border-[#00E5FF]"
-                />
-                <button
-                  type="button"
-                  onclick={handleManualSync}
-                  disabled={isSyncingMetadata || !manualSyncTitle.trim()}
-                  class="bg-[#00E5FF] hover:bg-[#00c8e0] text-[#121212] font-bold text-xs font-mono px-4 py-2 rounded-xl transition-all cursor-pointer disabled:opacity-40 flex items-center gap-1.5 shrink-0"
-                >
-                  {#if isSyncingMetadata}
-                    <span class="inline-block animate-spin w-3 h-3 border-2 border-[#121212] border-t-transparent rounded-full"></span>
-                    Syncing...
-                  {:else}
-                    Sync AniList
-                  {/if}
-                </button>
-              </div>
+              {#if !auth.isAuthenticated}
+                <div class="p-3 rounded-lg bg-[#252525] border border-[#2C2C2E] flex items-center justify-between text-xs font-mono">
+                  <span class="text-gray-400">Sign in to manually search & sync AniList metadata for this title.</span>
+                  <a href="/login?redirect=/explore" class="text-[#00E5FF] hover:underline font-bold">Sign In &rarr;</a>
+                </div>
+              {:else}
+                <div class="flex gap-2">
+                  <input
+                    type="text"
+                    bind:value={manualSyncTitle}
+                    placeholder="Enter anime title (e.g. Frieren: Beyond Journey's End)"
+                    class="flex-1 bg-[#1E1E1E] border border-[#2C2C2E] rounded-xl px-3 py-2 text-xs font-mono text-white placeholder-gray-600 focus:outline-none focus:border-[#00E5FF]"
+                  />
+                  <button
+                    type="button"
+                    onclick={handleManualSync}
+                    disabled={isSyncingMetadata || !manualSyncTitle.trim()}
+                    class="bg-[#00E5FF] hover:bg-[#00c8e0] text-[#121212] font-bold text-xs font-mono px-4 py-2 rounded-xl transition-all cursor-pointer disabled:opacity-40 flex items-center gap-1.5 shrink-0"
+                  >
+                    {#if isSyncingMetadata}
+                      <span class="inline-block animate-spin w-3 h-3 border-2 border-[#121212] border-t-transparent rounded-full"></span>
+                      Syncing...
+                    {:else}
+                      Sync AniList
+                    {/if}
+                  </button>
+                </div>
+              {/if}
             </div>
           </div>
         {/if}

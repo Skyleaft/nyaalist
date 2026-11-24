@@ -4,5 +4,5 @@ pub mod routes;
 pub mod service;
 
 #[allow(unused_imports)]
-pub use middleware::AuthUser;
+pub use middleware::{require_admin, require_auth, AdminUser, AuthUser, OptionalAuthUser};
 pub use routes::router;

@@ -8,6 +8,7 @@ use axum::{
 
 use crate::core::error::AppError;
 use crate::core::state::AppState;
+use crate::features::auth::AuthUser;
 use crate::features::explore::models::{
     AnimeMetadata, ExploreQuery, NyaaRelease, NyaaReleaseDetail, SyncRequest,
 };
@@ -144,6 +145,7 @@ async fn get_release_detail(
 }
 
 async fn sync_title_metadata(
+    _auth: AuthUser,
     State(state): State<AppState>,
     Json(payload): Json<SyncRequest>,
 ) -> Result<Json<Option<AnimeMetadata>>, AppError> {
