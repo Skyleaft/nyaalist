@@ -1,6 +1,7 @@
 <script lang="ts">
   import { auth } from '#lib/stores/auth.svelte';
   import { goto } from '$app/navigation';
+  import { page } from '$app/state';
 
   let username = $state('');
   let password = $state('');
@@ -12,7 +13,8 @@
 
     try {
       await auth.login(username.trim(), password);
-      goto('/');
+      const redirect = page.url.searchParams.get('redirect') || '/';
+      goto(redirect);
     } catch (err: any) {
       loginError = err.message || 'Invalid username or password.';
     }
@@ -76,5 +78,12 @@
         {auth.loading ? 'Authenticating...' : 'Sign In'}
       </button>
     </form>
+
+    <div class="pt-4 border-t border-[#2C2C2E] flex items-center justify-between text-xs font-mono text-[#98989D]">
+      <span>Guest visitor?</span>
+      <a href="/explore" class="text-[#00E5FF] hover:text-cyan-300 transition-colors flex items-center gap-1">
+        Browse releases publicly &rarr;
+      </a>
+    </div>
   </div>
 </div>

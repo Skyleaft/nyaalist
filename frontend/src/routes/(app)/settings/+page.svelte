@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api } from '#lib/api/client';
+  import { auth } from '#lib/stores/auth.svelte';
   import type { AppConfigDto, PathValidationResponse } from '#lib/api/types';
 
   let config = $state<AppConfigDto | null>(null);
@@ -14,7 +15,11 @@
   let validationResults = $state<Record<string, PathValidationResponse | null>>({});
 
   onMount(async () => {
-    await fetchConfig();
+    if (auth.user?.role === 'admin') {
+      await fetchConfig();
+    } else {
+      loading = false;
+    }
   });
 
   async function fetchConfig() {
@@ -79,7 +84,23 @@
 </svelte:head>
 
 <div class="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
-  <!-- Top Bar -->
+  {#if auth.user && auth.user.role !== 'admin'}
+    <div class="bg-[#2A1818] border border-[#FF453A]/40 rounded-2xl p-10 text-center space-y-4 max-w-2xl mx-auto mt-12">
+      <div class="w-12 h-12 mx-auto rounded-full bg-[#FF453A]/20 flex items-center justify-center text-[#FF453A] text-xl font-bold font-mono">
+        403
+      </div>
+      <h2 class="text-lg font-bold font-mono text-white">Administrator Privileges Required</h2>
+      <p class="text-sm text-gray-400 max-w-md mx-auto">
+        Modifying server storage directories, BitTorrent limits, and execution paths requires an administrator account.
+      </p>
+      <div class="pt-4">
+        <a href="/" class="inline-block px-5 py-2.5 bg-[#1E1E1E] border border-[#2C2C2E] hover:border-[#00E5FF] text-white rounded-xl font-mono text-xs transition-colors">
+          &larr; Return to Dashboard
+        </a>
+      </div>
+    </div>
+  {:else}
+    <!-- Top Bar -->
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#2C2C2E] pb-4">
     <div>
       <div class="flex items-center gap-3">
@@ -399,5 +420,6 @@
         </div>
       </div>
     </div>
+  {/if}
   {/if}
 </div>

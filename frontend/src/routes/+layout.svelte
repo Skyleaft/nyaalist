@@ -9,16 +9,39 @@
 
   onMount(async () => {
     await auth.init();
+  });
+
+  $effect(() => {
+    if (auth.loading) return;
+
+    const pathname = page.url.pathname;
 
     // Check setup requirement
-    if (auth.setupRequired && page.url.pathname !== '/setup') {
-      goto('/setup');
+    if (auth.setupRequired) {
+      if (pathname !== '/setup') {
+        goto('/setup');
+      }
+      return;
+    }
+
+    // Publicly accessible paths that guest users can consume
+    const isPublic = pathname.startsWith('/explore') || pathname === '/login' || pathname === '/setup';
+
+    if (!auth.isAuthenticated && !isPublic) {
+      const redirectTarget = encodeURIComponent(pathname + (page.url.search || ''));
+      goto(`/login?redirect=${redirectTarget}`);
+      return;
+    }
+
+    if (auth.isAuthenticated && (pathname === '/login' || pathname === '/setup')) {
+      goto('/');
+      return;
     }
   });
 
   async function handleLogout() {
     await auth.logout();
-    goto('/login');
+    goto('/explore');
   }
 </script>
 
@@ -32,41 +55,45 @@
 
         <nav class="hidden md:flex items-center gap-1 ml-6 text-xs font-mono">
           <a
+            href="/explore"
+            class="px-3 py-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-[#252525] transition-colors flex items-center gap-1.5 {page.url.pathname.startsWith('/explore') ? 'text-[#00E5FF] bg-[#252525]' : ''}"
+          >
+            <span>Explore</span>
+            <span class="text-[9px] px-1 py-0.2 rounded bg-[#00E5FF]/20 text-[#00E5FF] border border-[#00E5FF]/40 uppercase font-sans font-bold">Public</span>
+          </a>
+          <a
             href="/"
-            class="px-3 py-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-[#252525] transition-colors"
+            class="px-3 py-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-[#252525] transition-colors {page.url.pathname === '/' ? 'text-[#00E5FF] bg-[#252525]' : ''}"
           >
             Dashboard
           </a>
           <a
-            href="/explore"
-            class="px-3 py-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-[#252525] transition-colors"
-          >
-            Explore
-          </a>
-          <a
             href="/downloads"
-            class="px-3 py-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-[#252525] transition-colors flex items-center gap-1.5"
+            class="px-3 py-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-[#252525] transition-colors flex items-center gap-1.5 {page.url.pathname === '/downloads' ? 'text-[#00E5FF] bg-[#252525]' : ''}"
           >
             <span>Downloads</span>
           </a>
           <a
             href="/library"
-            class="px-3 py-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-[#252525] transition-colors flex items-center gap-1.5"
+            class="px-3 py-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-[#252525] transition-colors flex items-center gap-1.5 {page.url.pathname === '/library' ? 'text-[#00E5FF] bg-[#252525]' : ''}"
           >
             <span>Library</span>
           </a>
           <a
             href="/encoder"
-            class="px-3 py-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-[#252525] transition-colors flex items-center gap-1.5"
+            class="px-3 py-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-[#252525] transition-colors flex items-center gap-1.5 {page.url.pathname === '/encoder' ? 'text-[#00E5FF] bg-[#252525]' : ''}"
           >
             <span>Encoder</span>
           </a>
-          <a
-            href="/settings"
-            class="px-3 py-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-[#252525] transition-colors flex items-center gap-1.5"
-          >
-            <span>Settings</span>
-          </a>
+          {#if auth.isAuthenticated && auth.user?.role === 'admin'}
+            <a
+              href="/settings"
+              class="px-3 py-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-[#252525] transition-colors flex items-center gap-1.5 {page.url.pathname === '/settings' ? 'text-[#00E5FF] bg-[#252525]' : ''}"
+            >
+              <span>Settings</span>
+              <span class="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-400 border border-amber-500/40 uppercase font-sans font-bold">Admin</span>
+            </a>
+          {/if}
         </nav>
       </div>
 
@@ -86,9 +113,9 @@
         {:else if !auth.setupRequired}
           <a
             href="/login"
-            class="text-[#00E5FF] hover:text-cyan-300 transition-colors border border-[#2C2C2E] px-2.5 py-1 rounded"
+            class="text-[#00E5FF] hover:bg-[#00E5FF]/10 transition-colors border border-[#00E5FF]/60 px-3 py-1 rounded flex items-center gap-1"
           >
-            Login
+            Sign In
           </a>
         {/if}
       </div>

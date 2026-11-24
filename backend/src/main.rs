@@ -9,7 +9,7 @@ use axum::{
     Json, Router,
 };
 use serde_json::json;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -130,9 +130,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 9. Configure Router & Middleware
     let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_origin(tower_http::cors::AllowOrigin::mirror_request())
+        .allow_methods([
+            axum::http::Method::GET,
+            axum::http::Method::POST,
+            axum::http::Method::PUT,
+            axum::http::Method::DELETE,
+            axum::http::Method::PATCH,
+            axum::http::Method::OPTIONS,
+        ])
+        .allow_headers(tower_http::cors::AllowHeaders::mirror_request())
+        .allow_credentials(true);
+
+    let protected_downloader = features::downloader::router()
+        .route_layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            features::auth::require_auth,
+        ));
+
+    let protected_library = features::library::router()
+        .route_layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            features::auth::require_auth,
+        ));
+
+    let protected_encoder = features::encoder::router()
+        .route_layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            features::auth::require_auth,
+        ));
+
+    let protected_config = features::config::router()
+        .route_layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            features::auth::require_admin,
+        ));
 
     let app = Router::new()
         .route("/api/health", get(health_check))
@@ -140,10 +172,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .nest("/api/auth", features::auth::router())
         .nest("/api/explore", features::explore::router())
         .nest("/api/covers", features::explore::covers_router())
-        .nest("/api/downloader", features::downloader::router())
-        .nest("/api/library", features::library::router())
-        .nest("/api/encoder", features::encoder::router())
-        .nest("/api/config", features::config::router())
+        .nest("/api/downloader", protected_downloader)
+        .nest("/api/library", protected_library)
+        .nest("/api/encoder", protected_encoder)
+        .nest("/api/config", protected_config)
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(state);

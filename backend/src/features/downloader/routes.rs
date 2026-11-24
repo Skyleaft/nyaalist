@@ -14,6 +14,7 @@ use uuid::Uuid;
 
 use crate::core::error::AppError;
 use crate::core::state::AppState;
+use crate::features::auth::OptionalAuthUser;
 use crate::features::downloader::models::{AddTorrentRequest, DeleteTorrentQuery, DownloadJob};
 
 pub fn router() -> Router<AppState> {
@@ -82,20 +83,30 @@ async fn delete_torrent(
 /// WebSocket Upgrade handler for live telemetry streaming
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
+    user: OptionalAuthUser,
     State(state): State<AppState>,
 ) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| handle_ws_socket(socket, state))
+    let is_authenticated = user.0.is_some();
+    ws.on_upgrade(move |socket| handle_ws_socket(socket, state, is_authenticated))
 }
 
-async fn handle_ws_socket(socket: WebSocket, state: AppState) {
+async fn handle_ws_socket(socket: WebSocket, state: AppState, is_authenticated: bool) {
     let (mut sender, mut receiver) = socket.split();
     let mut rx = state.ws.tx.subscribe();
 
-    info!("New WebSocket client connected for telemetry");
+    info!(
+        "New WebSocket client connected for telemetry (authenticated: {})",
+        is_authenticated
+    );
 
     // Task to forward broadcast messages from WsHub to the WebSocket client
     let mut send_task = tokio::spawn(async move {
         while let Ok(msg) = rx.recv().await {
+            // For unauthenticated/guest clients, only forward non-sensitive events (such as AniList metadata sync)
+            if !is_authenticated && msg.event != "anilist_metadata_synced" {
+                continue;
+            }
+
             if let Ok(json_text) = serde_json::to_string(&msg) {
                 if sender.send(Message::Text(json_text)).await.is_err() {
                     break;
