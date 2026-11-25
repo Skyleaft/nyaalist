@@ -92,6 +92,13 @@
     return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
   }
 
+  function getCoverUrl(path: string): string {
+    if (path.startsWith('/') || path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+    return `/api/covers/${path}`;
+  }
+
   function openMoveModal(item: LibraryFileItem) {
     selectedFile = item;
     const targetPath = item.target_library_path || item.current_path;
@@ -406,7 +413,7 @@
                   <div class="flex items-start gap-3">
                     {#if item.anime_cover_path}
                       <img
-                        src="/api/covers/{item.anime_cover_path}"
+                        src={getCoverUrl(item.anime_cover_path)}
                         alt="Cover"
                         class="w-10 h-14 object-cover rounded-xl border border-white/10 shrink-0 shadow-md"
                       />
