@@ -11,6 +11,11 @@ export default defineConfig(({ mode }) => {
 	// Load environment variables from .env / .env.local
 	const env = loadEnv(mode, process.cwd(), '');
 	const backendTarget = env.PUBLIC_API_URL || 'http://127.0.0.1:5041';
+	const allowedHosts = env.ALLOWED_HOSTS
+		? env.ALLOWED_HOSTS === 'true'
+			? true
+			: env.ALLOWED_HOSTS.split(',').map((h) => h.trim()).filter(Boolean)
+		: undefined;
 
 	return {
 		plugins: [
@@ -28,6 +33,7 @@ export default defineConfig(({ mode }) => {
 		server: {
 			port: 3040,
 			host: true,
+			...(allowedHosts !== undefined ? { allowedHosts } : {}),
 			proxy: {
 				'/api': {
 					target: backendTarget,
