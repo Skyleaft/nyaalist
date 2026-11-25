@@ -4,6 +4,8 @@
   import { goto } from '$app/navigation';
   import type { NyaaRelease, NyaaReleaseDetail, NyaaFileItem, AnimeMetadata } from '#lib/api/types';
   import { onMount } from 'svelte';
+  import { fade, scale } from 'svelte/transition';
+  import { cubicOut } from 'svelte/easing';
   import { marked } from 'marked';
   import DOMPurify from 'dompurify';
   import {
@@ -857,14 +859,16 @@
 <!-- Scraped Item Detail Modal (Material 3 Expressive Glass Modal) -->
 {#if selectedRelease}
   <div
-    class="fixed inset-0 bg-slate-950/80 backdrop-blur-xl z-50 flex items-center justify-center p-3 md:p-6 overflow-y-auto animate-fade-in"
+    transition:fade={{ duration: 200, easing: cubicOut }}
+    class="fixed inset-0 bg-slate-950/80 backdrop-blur-xl z-[60] flex items-center justify-center p-3 md:p-6 overflow-y-auto"
     tabindex="-1"
     role="presentation"
     onclick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
     onkeydown={(e) => { if (e.key === 'Escape') closeModal(); }}
   >
     <div
-      class="glass-panel-elevated rounded-3xl max-w-3xl w-full my-auto shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-white/15 animate-scale-in"
+      transition:scale={{ duration: 260, start: 0.94, opacity: 0, easing: cubicOut }}
+      class="glass-panel-elevated rounded-3xl max-w-3xl w-full my-auto shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-white/15"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-release-title"

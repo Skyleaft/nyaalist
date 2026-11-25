@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { fade, scale } from 'svelte/transition';
+  import { cubicOut } from 'svelte/easing';
   import { library } from '#lib/stores/library.svelte';
   import { api } from '#lib/api/client';
   import type { LibraryFileItem, EncodingPreset } from '#lib/api/types';
@@ -545,8 +547,14 @@
 
 <!-- Manual Move / Rename Modal -->
 {#if isMoveModalOpen && selectedFile}
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl animate-fade-in">
-    <div class="glass-panel-elevated rounded-3xl p-6 max-w-xl w-full shadow-2xl relative space-y-4 border border-slate-200/80 dark:border-white/15 animate-scale-in">
+  <div
+    transition:fade={{ duration: 200, easing: cubicOut }}
+    class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl"
+  >
+    <div
+      transition:scale={{ duration: 260, start: 0.94, opacity: 0, easing: cubicOut }}
+      class="glass-panel-elevated rounded-3xl p-6 max-w-xl w-full shadow-2xl relative space-y-4 border border-slate-200/80 dark:border-white/15"
+    >
       <div class="flex justify-between items-center">
         <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <Move class="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
@@ -631,8 +639,14 @@
 
 <!-- Encode File Modal -->
 {#if isEncodeModalOpen && encodeTargetFile}
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl animate-fade-in">
-    <div class="glass-panel-elevated rounded-3xl p-6 max-w-xl w-full shadow-2xl relative space-y-4 border border-slate-200/80 dark:border-white/15 animate-scale-in">
+  <div
+    transition:fade={{ duration: 200, easing: cubicOut }}
+    class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl"
+  >
+    <div
+      transition:scale={{ duration: 260, start: 0.94, opacity: 0, easing: cubicOut }}
+      class="glass-panel-elevated rounded-3xl p-6 max-w-xl w-full shadow-2xl relative space-y-4 border border-slate-200/80 dark:border-white/15"
+    >
       <div class="flex justify-between items-center">
         <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <Film class="w-5 h-5 text-purple-600 dark:text-purple-400" />

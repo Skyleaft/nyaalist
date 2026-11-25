@@ -385,7 +385,7 @@
     </header>
   {/if}
 
-  <main class="flex-1 flex flex-col relative z-10">
+  <main class="flex-1 flex flex-col relative">
     {@render children()}
   </main>
 </div>
