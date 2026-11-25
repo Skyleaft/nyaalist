@@ -3,6 +3,8 @@
   import { auth } from '#lib/stores/auth.svelte';
   import { theme } from '#lib/stores/theme.svelte';
   import { onMount } from 'svelte';
+  import { crossfade, fade } from 'svelte/transition';
+  import { cubicOut } from 'svelte/easing';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import {
@@ -24,6 +26,27 @@
 
   let scrollY = $state(0);
   const isScrolled = $derived(scrollY > 20);
+
+  const [send, receive] = crossfade({
+    duration: 250,
+    easing: cubicOut,
+    fallback(node) {
+      return fade(node, { duration: 150 });
+    }
+  });
+
+  const navItems = [
+    { href: '/explore', label: 'Explore', icon: Compass, badge: 'Public', match: (p: string) => p.startsWith('/explore') },
+    { href: '/', label: 'Dashboard', icon: LayoutDashboard, match: (p: string) => p === '/' },
+    { href: '/downloads', label: 'Downloads', icon: DownloadCloud, match: (p: string) => p === '/downloads' },
+    { href: '/library', label: 'Library', icon: Library, match: (p: string) => p === '/library' },
+    { href: '/encoder', label: 'Encoder', icon: Film, match: (p: string) => p === '/encoder' },
+    { href: '/settings', label: 'Settings', icon: Settings, badge: 'Admin', adminOnly: true, match: (p: string) => p === '/settings' }
+  ];
+
+  const visibleNavItems = $derived(
+    navItems.filter(item => !item.adminOnly || (auth.isAuthenticated && auth.user?.role === 'admin'))
+  );
 
   let mobileNavEl = $state<HTMLElement | null>(null);
 
@@ -174,75 +197,32 @@
             </div>
           </div>
 
-          <!-- M3 Expressive Navigation Pills -->
-          <nav class="hidden md:flex items-center gap-1.5 p-1 rounded-full bg-slate-100/70 dark:bg-slate-950/40 border border-slate-200 dark:border-white/5 backdrop-blur-md text-xs font-medium">
-            <a
-              href="/explore"
-              class="px-3.5 py-1.5 rounded-full transition-all flex items-center gap-2 {page.url.pathname.startsWith('/explore')
-                ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-400/40 shadow-[0_0_12px_rgba(0,229,255,0.2)] font-semibold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 border border-transparent'}"
-            >
-              <Compass class="w-3.5 h-3.5" />
-              <span>Explore</span>
-              <span class="text-[9px] px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-400/30 font-bold uppercase tracking-wider">
-                Public
-              </span>
-            </a>
-
-            <a
-              href="/"
-              class="px-3.5 py-1.5 rounded-full transition-all flex items-center gap-2 {page.url.pathname === '/'
-                ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-400/40 shadow-[0_0_12px_rgba(0,229,255,0.2)] font-semibold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 border border-transparent'}"
-            >
-              <LayoutDashboard class="w-3.5 h-3.5" />
-              <span>Dashboard</span>
-            </a>
-
-            <a
-              href="/downloads"
-              class="px-3.5 py-1.5 rounded-full transition-all flex items-center gap-2 {page.url.pathname === '/downloads'
-                ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-400/40 shadow-[0_0_12px_rgba(0,229,255,0.2)] font-semibold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 border border-transparent'}"
-            >
-              <DownloadCloud class="w-3.5 h-3.5" />
-              <span>Downloads</span>
-            </a>
-
-            <a
-              href="/library"
-              class="px-3.5 py-1.5 rounded-full transition-all flex items-center gap-2 {page.url.pathname === '/library'
-                ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-400/40 shadow-[0_0_12px_rgba(0,229,255,0.2)] font-semibold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 border border-transparent'}"
-            >
-              <Library class="w-3.5 h-3.5" />
-              <span>Library</span>
-            </a>
-
-            <a
-              href="/encoder"
-              class="px-3.5 py-1.5 rounded-full transition-all flex items-center gap-2 {page.url.pathname === '/encoder'
-                ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-400/40 shadow-[0_0_12px_rgba(0,229,255,0.2)] font-semibold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 border border-transparent'}"
-            >
-              <Film class="w-3.5 h-3.5" />
-              <span>Encoder</span>
-            </a>
-
-            {#if auth.isAuthenticated && auth.user?.role === 'admin'}
+          <!-- M3 Expressive Navigation Pills with Svelte Transitions -->
+          <nav class="hidden md:flex items-center gap-1 p-1 rounded-full bg-slate-100/70 dark:bg-slate-950/40 border border-slate-200 dark:border-white/5 backdrop-blur-md text-xs font-medium relative">
+            {#each visibleNavItems as item (item.href)}
+              {@const active = item.match(page.url.pathname)}
               <a
-                href="/settings"
-                class="px-3.5 py-1.5 rounded-full transition-all flex items-center gap-2 {page.url.pathname === '/settings'
-                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-400/30 shadow-[0_0_12px_rgba(245,158,11,0.2)] font-semibold'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 border border-transparent'}"
+                href={item.href}
+                class="relative px-3.5 py-1.5 rounded-full transition-colors duration-200 flex items-center gap-2 z-10 active:scale-95 cursor-pointer {active
+                  ? 'text-cyan-700 dark:text-cyan-300 font-semibold'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'}"
               >
-                <Settings class="w-3.5 h-3.5" />
-                <span>Settings</span>
-                <span class="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 uppercase font-bold tracking-wider">
-                  Admin
-                </span>
+                {#if active}
+                  <div
+                    in:receive={{ key: 'desktop-nav-active-pill' }}
+                    out:send={{ key: 'desktop-nav-active-pill' }}
+                    class="absolute inset-0 rounded-full bg-cyan-500/15 dark:bg-cyan-500/20 border border-cyan-400/40 shadow-[0_0_12px_rgba(0,229,255,0.2)] -z-10"
+                  ></div>
+                {/if}
+                <item.icon class="w-3.5 h-3.5 transition-transform duration-200 {active ? 'scale-110 text-cyan-600 dark:text-cyan-300' : ''}" />
+                <span>{item.label}</span>
+                {#if item.badge}
+                  <span class="text-[9px] px-1.5 py-0.2 rounded-full font-bold uppercase tracking-wider {item.badge === 'Admin' ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40' : 'bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-400/30'}">
+                    {item.badge}
+                  </span>
+                {/if}
               </a>
-            {/if}
+            {/each}
           </nav>
 
           <!-- Desktop Right Side: Theme Switcher & User Status -->
@@ -312,73 +292,31 @@
             {/if}
           </div>
 
-          <!-- Mobile Navigation Sub-bar: integrated inside the glass panel -->
+          <!-- Mobile Navigation Sub-bar: integrated with Svelte Transitions -->
           <div
             bind:this={mobileNavEl}
-            class="flex md:hidden overflow-x-auto gap-1.5 pt-2 pb-0.5 scrollbar-none text-xs font-medium border-t border-slate-200/60 dark:border-white/5 w-full"
+            class="flex md:hidden overflow-x-auto gap-1.5 pt-2 pb-0.5 scrollbar-none text-xs font-medium border-t border-slate-200/60 dark:border-white/5 w-full relative"
           >
-            <a
-              href="/explore"
-              data-active={page.url.pathname.startsWith('/explore')}
-              class="px-3 py-1.5 rounded-full whitespace-nowrap flex items-center gap-1.5 transition-all {page.url.pathname.startsWith('/explore')
-                ? 'bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-400/40 shadow-[0_0_12px_rgba(0,229,255,0.15)] font-semibold'
-                : 'bg-slate-200/70 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 border border-black/5 dark:border-white/5'}"
-            >
-              <Compass class="w-3.5 h-3.5" />
-              <span>Explore</span>
-            </a>
-            <a
-              href="/"
-              data-active={page.url.pathname === '/'}
-              class="px-3 py-1.5 rounded-full whitespace-nowrap flex items-center gap-1.5 transition-all {page.url.pathname === '/'
-                ? 'bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-400/40 shadow-[0_0_12px_rgba(0,229,255,0.15)] font-semibold'
-                : 'bg-slate-200/70 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 border border-black/5 dark:border-white/5'}"
-            >
-              <LayoutDashboard class="w-3.5 h-3.5" />
-              <span>Dashboard</span>
-            </a>
-            <a
-              href="/downloads"
-              data-active={page.url.pathname === '/downloads'}
-              class="px-3 py-1.5 rounded-full whitespace-nowrap flex items-center gap-1.5 transition-all {page.url.pathname === '/downloads'
-                ? 'bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-400/40 shadow-[0_0_12px_rgba(0,229,255,0.15)] font-semibold'
-                : 'bg-slate-200/70 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 border border-black/5 dark:border-white/5'}"
-            >
-              <DownloadCloud class="w-3.5 h-3.5" />
-              <span>Downloads</span>
-            </a>
-            <a
-              href="/library"
-              data-active={page.url.pathname === '/library'}
-              class="px-3 py-1.5 rounded-full whitespace-nowrap flex items-center gap-1.5 transition-all {page.url.pathname === '/library'
-                ? 'bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-400/40 shadow-[0_0_12px_rgba(0,229,255,0.15)] font-semibold'
-                : 'bg-slate-200/70 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 border border-black/5 dark:border-white/5'}"
-            >
-              <Library class="w-3.5 h-3.5" />
-              <span>Library</span>
-            </a>
-            <a
-              href="/encoder"
-              data-active={page.url.pathname === '/encoder'}
-              class="px-3 py-1.5 rounded-full whitespace-nowrap flex items-center gap-1.5 transition-all {page.url.pathname === '/encoder'
-                ? 'bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-400/40 shadow-[0_0_12px_rgba(0,229,255,0.15)] font-semibold'
-                : 'bg-slate-200/70 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 border border-black/5 dark:border-white/5'}"
-            >
-              <Film class="w-3.5 h-3.5" />
-              <span>Encoder</span>
-            </a>
-            {#if auth.isAuthenticated && auth.user?.role === 'admin'}
+            {#each visibleNavItems as item (item.href)}
+              {@const active = item.match(page.url.pathname)}
               <a
-                href="/settings"
-                data-active={page.url.pathname === '/settings'}
-                class="px-3 py-1.5 rounded-full whitespace-nowrap flex items-center gap-1.5 transition-all {page.url.pathname === '/settings'
-                  ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-400/40 shadow-[0_0_12px_rgba(245,158,11,0.2)] font-semibold'
-                  : 'bg-slate-200/70 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 border border-black/5 dark:border-white/5'}"
+                href={item.href}
+                data-active={active}
+                class="relative px-3 py-1.5 rounded-full whitespace-nowrap flex items-center gap-1.5 transition-colors duration-200 z-10 active:scale-95 cursor-pointer {active
+                  ? 'text-cyan-700 dark:text-cyan-300 font-semibold'
+                  : 'text-slate-600 dark:text-slate-400 bg-slate-200/70 dark:bg-slate-950/40 border border-black/5 dark:border-white/5'}"
               >
-                <Settings class="w-3.5 h-3.5" />
-                <span>Settings</span>
+                {#if active}
+                  <div
+                    in:receive={{ key: 'mobile-nav-active-pill' }}
+                    out:send={{ key: 'mobile-nav-active-pill' }}
+                    class="absolute inset-0 rounded-full bg-cyan-500/20 border border-cyan-400/40 shadow-[0_0_12px_rgba(0,229,255,0.15)] -z-10"
+                  ></div>
+                {/if}
+                <item.icon class="w-3.5 h-3.5 transition-transform duration-200 {active ? 'scale-110 text-cyan-600 dark:text-cyan-300' : ''}" />
+                <span>{item.label}</span>
               </a>
-            {/if}
+            {/each}
           </div>
         </div>
       </div>
@@ -386,6 +324,10 @@
   {/if}
 
   <main class="flex-1 flex flex-col relative">
-    {@render children()}
+    {#key page.url.pathname}
+      <div in:fade={{ duration: 180, delay: 40, easing: cubicOut }} class="flex-1 flex flex-col">
+        {@render children()}
+      </div>
+    {/key}
   </main>
 </div>
