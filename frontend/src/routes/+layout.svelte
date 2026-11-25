@@ -22,6 +22,9 @@
 
   let { children } = $props();
 
+  let scrollY = $state(0);
+  const isScrolled = $derived(scrollY > 20);
+
   onMount(async () => {
     theme.init();
     await auth.init();
@@ -65,15 +68,18 @@
   );
 </script>
 
-<div class="min-h-screen bg-[#F8FAFC] dark:bg-[#0A0E17] text-slate-800 dark:text-[#EDF2F7] flex flex-col font-sans relative overflow-x-hidden selection:bg-[#00E5FF]/20 selection:text-[#00E5FF] transition-colors duration-300">
+<svelte:window bind:scrollY />
+
+<div class="min-h-screen bg-[#F8FAFC] dark:bg-[#0A0E17] text-slate-800 dark:text-[#EDF2F7] flex flex-col font-sans relative overflow-x-clip selection:bg-[#00E5FF]/20 selection:text-[#00E5FF] transition-colors duration-300">
   <!-- Ambient Glassmorphism Aurora Orbs -->
   <div class="pointer-events-none fixed -top-40 -left-40 w-96 h-96 rounded-full bg-cyan-400/20 dark:bg-cyan-500/15 blur-[120px] animate-aurora-1"></div>
   <div class="pointer-events-none fixed top-12 -right-40 w-[32rem] h-[32rem] rounded-full bg-purple-400/18 dark:bg-purple-600/12 blur-[140px] animate-aurora-2"></div>
   <div class="pointer-events-none fixed -bottom-40 left-1/3 w-[30rem] h-[30rem] rounded-full bg-emerald-400/18 dark:bg-emerald-500/10 blur-[130px] animate-aurora-1"></div>
 
   {#if !auth.loading && !isAuthPage}
-    <header class="sticky top-3 z-40 mx-auto w-[calc(100%-1.5rem)] max-w-7xl pt-1">
-      <div class="glass-panel-elevated rounded-2xl md:rounded-full px-4 md:px-6 py-2.5 flex items-center justify-between gap-3 sm:gap-4 transition-all duration-300 border border-slate-200/80 dark:border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.4)]">
+    <header class="sticky top-0 z-40 w-full transition-all duration-300 {isScrolled ? 'pt-2 pb-1' : 'pt-3 sm:pt-4 pb-2'}">
+      <div class="mx-auto w-[calc(100%-1.5rem)] max-w-7xl transition-all duration-300">
+        <div class="glass-panel-elevated rounded-2xl md:rounded-full px-4 md:px-6 flex items-center justify-between gap-3 sm:gap-4 transition-all duration-300 border {isScrolled ? 'py-2 border-slate-300/90 dark:border-cyan-400/30 shadow-[0_16px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_16px_50px_rgba(0,0,0,0.6)] backdrop-blur-2xl bg-white/95 dark:bg-[#101726]/90' : 'py-2.5 sm:py-3 border-slate-200/80 dark:border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.06)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.35)]'}">
         <!-- Brand & Version -->
         <div class="flex items-center gap-3">
           <div class="relative flex items-center justify-center">
@@ -232,7 +238,7 @@
       </div>
 
       <!-- Mobile Navigation Sub-bar -->
-      <div class="flex md:hidden overflow-x-auto gap-1.5 py-2 px-1 mt-1 scrollbar-none text-xs font-medium">
+      <div class="flex md:hidden overflow-x-auto gap-1.5 py-1.5 px-2 mt-1 scrollbar-none text-xs font-medium rounded-2xl transition-all duration-300 {isScrolled ? 'glass-panel shadow-md border border-slate-200/80 dark:border-white/10 backdrop-blur-xl' : ''}">
         <a
           href="/explore"
           class="px-3 py-1.5 rounded-full whitespace-nowrap flex items-center gap-1.5 {page.url.pathname.startsWith('/explore') ? 'bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-400/40' : 'bg-slate-200/80 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 border border-black/5 dark:border-white/5'}"
@@ -278,7 +284,8 @@
           </a>
         {/if}
       </div>
-    </header>
+    </div>
+  </header>
   {/if}
 
   <main class="flex-1 flex flex-col relative z-10">
