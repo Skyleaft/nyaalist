@@ -36,6 +36,8 @@ pub struct AppConfig {
     pub ffprobe_binary_path: String,
     pub encoder_max_concurrent_jobs: usize,
     pub encoder_default_preset: String,
+    pub gemini_api_key: Option<String>,
+    pub gemini_model: String,
 }
 
 impl AppConfig {
@@ -142,6 +144,15 @@ impl AppConfig {
                 .unwrap_or(1),
             encoder_default_preset: std::env::var("ENCODER_DEFAULT_PRESET")
                 .unwrap_or_else(|_| "720p x265 Balanced".to_string()),
+            gemini_api_key: std::env::var("GEMINI_API_KEY")
+                .ok()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty()),
+            gemini_model: std::env::var("GEMINI_MODEL")
+                .ok()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "gemini-2.5-flash".to_string()),
         })
     }
 }

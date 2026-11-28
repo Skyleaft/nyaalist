@@ -111,12 +111,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let encoder_worker = features::encoder::EncodingQueueWorker::new(
-        resolved_ffmpeg,
-        resolved_ffprobe,
+        resolved_ffmpeg.clone(),
+        resolved_ffprobe.clone(),
         db_pool.clone(),
         ws_hub.clone(),
     );
     encoder_worker.start();
+
+    let translator_work_dir = config.temp_encode_dir.join("translator");
+    tokio::fs::create_dir_all(&translator_work_dir).await?;
+    let translator_worker = features::translator::TranslationQueueWorker::new(
+        resolved_ffmpeg,
+        resolved_ffprobe,
+        translator_work_dir,
+        std::sync::Arc::new(config.clone()),
+        db_pool.clone(),
+        sea_db.clone(),
+        ws_hub.clone(),
+    );
+    translator_worker.start();
 
     // 8. Initialize AniList Metadata Client & Asynchronous Sync Worker
     let anilist_client = std::sync::Arc::new(features::explore::anilist_client::AniListClient::new(
@@ -160,6 +173,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             features::auth::require_auth,
         ));
 
+    let protected_translator = features::translator::router()
+        .route_layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            features::auth::require_auth,
+        ));
+
     let protected_config = features::config::router()
         .route_layer(axum::middleware::from_fn_with_state(
             state.clone(),
@@ -175,6 +194,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .nest("/api/downloader", protected_downloader)
         .nest("/api/library", protected_library)
         .nest("/api/encoder", protected_encoder)
+        .nest("/api/translator", protected_translator)
         .nest("/api/config", protected_config)
         .layer(cors)
         .layer(TraceLayer::new_for_http())

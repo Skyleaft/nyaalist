@@ -7,4 +7,5 @@ pub mod library_files;
 pub mod nyaa_torrents;
 pub mod prelude;
 pub mod title_mappings;
+pub mod translation_jobs;
 pub mod users;

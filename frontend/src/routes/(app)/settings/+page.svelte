@@ -18,7 +18,9 @@
     Sun,
     Moon,
     Monitor,
-    Palette
+    Palette,
+    Languages,
+    KeyRound
   } from 'lucide-svelte';
 
   let config = $state<AppConfigDto | null>(null);
@@ -26,6 +28,12 @@
   let saving = $state(false);
   let saveSuccess = $state(false);
   let errorMessage = $state<string | null>(null);
+
+  // Google AI Studio Translator key input
+  let geminiApiKeyInput = $state('');
+  let clearGeminiKey = $state(false);
+  let testingGeminiKey = $state(false);
+  let geminiTestResult = $state<{ ok: boolean; text: string } | null>(null);
 
   // Path validation states
   let validating = $state<Record<string, boolean>>({});
@@ -69,6 +77,23 @@
     }
   }
 
+  async function testGeminiConnection() {
+    if (!config) return;
+    testingGeminiKey = true;
+    geminiTestResult = null;
+    try {
+      const res = await api.translator.testKey({
+        api_key: geminiApiKeyInput.trim() || undefined,
+        model: config.gemini_model
+      });
+      geminiTestResult = { ok: true, text: res.message };
+    } catch (err: any) {
+      geminiTestResult = { ok: false, text: err.message || 'Failed to verify Google AI Studio API key' };
+    } finally {
+      testingGeminiKey = false;
+    }
+  }
+
   async function saveConfig() {
     if (!config) return;
     saving = true;
@@ -82,8 +107,14 @@
         nyaa_default_category: config.nyaa_default_category,
         torrent_global_download_limit_kbps: Number(config.torrent_global_download_limit_kbps),
         torrent_global_upload_limit_kbps: Number(config.torrent_global_upload_limit_kbps),
-        encoder_default_preset: config.encoder_default_preset
+        encoder_default_preset: config.encoder_default_preset,
+        gemini_api_key: geminiApiKeyInput.trim() || undefined,
+        clear_gemini_api_key: clearGeminiKey || undefined,
+        gemini_model: config.gemini_model
       });
+      geminiApiKeyInput = '';
+      clearGeminiKey = false;
+      await fetchConfig();
       saveSuccess = true;
       setTimeout(() => {
         saveSuccess = false;
@@ -522,6 +553,86 @@
                 bind:value={config.encoder_default_preset}
                 class="glass-input w-full rounded-2xl px-3.5 py-2 text-xs font-mono"
                 placeholder="720p x265 Balanced"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 5: AI Subtitle Translator (Google AI Studio) -->
+        <div class="glass-panel rounded-3xl p-6 space-y-5 border border-slate-200/80 dark:border-white/10 shadow-2xl">
+          <div class="flex items-center justify-between border-b border-slate-200/80 dark:border-white/5 pb-3">
+            <div>
+              <h2 class="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+                <Languages class="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+                <span>AI Subtitle Translator (Google AI Studio)</span>
+              </h2>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Configure Gemini API credentials and default model for automated subtitle translation</p>
+            </div>
+            <span class="text-[10px] font-mono px-2.5 py-0.5 rounded-full border font-bold {config.gemini_api_key_configured
+              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border-emerald-500/30'
+              : 'bg-amber-500/10 text-amber-600 dark:text-amber-300 border-amber-500/30'}">
+              {config.gemini_api_key_configured ? `CONFIGURED (${config.gemini_api_key_masked || 'SAVED'})` : 'NOT CONFIGURED'}
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="space-y-2">
+              <label for="input-gemini-key" class="text-xs font-mono text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <span class="flex items-center gap-1.5">
+                  <KeyRound class="w-3.5 h-3.5 text-cyan-500" />
+                  <span>Google AI Studio API Key</span>
+                </span>
+                {#if config.gemini_api_key_configured}
+                  <button
+                    type="button"
+                    onclick={() => {
+                      clearGeminiKey = !clearGeminiKey;
+                      if (clearGeminiKey) geminiApiKeyInput = '';
+                    }}
+                    class="text-[10px] underline cursor-pointer {clearGeminiKey ? 'text-rose-500 font-bold' : 'text-slate-400 hover:text-rose-400'}"
+                  >
+                    {clearGeminiKey ? 'Will clear key on Save (click to undo)' : 'Clear stored key'}
+                  </button>
+                {/if}
+              </label>
+              <div class="flex gap-2">
+                <input
+                  id="input-gemini-key"
+                  type="password"
+                  bind:value={geminiApiKeyInput}
+                  disabled={clearGeminiKey}
+                  class="glass-input flex-1 rounded-2xl px-3.5 py-2 text-xs font-mono disabled:opacity-50"
+                  placeholder={config.gemini_api_key_configured
+                    ? `Current: ${config.gemini_api_key_masked || '••••'} (enter new key to replace)`
+                    : 'AIza...'}
+                />
+                <button
+                  type="button"
+                  onclick={testGeminiConnection}
+                  disabled={testingGeminiKey}
+                  class="btn-expressive glass-pill text-xs font-mono px-3.5 py-2 rounded-2xl text-cyan-600 dark:text-cyan-300 border-cyan-400/30 cursor-pointer whitespace-nowrap"
+                >
+                  {testingGeminiKey ? 'Testing...' : 'Test Key'}
+                </button>
+              </div>
+              {#if geminiTestResult}
+                <div class="text-[11px] font-mono mt-1 {geminiTestResult.ok ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}">
+                  {geminiTestResult.ok ? '✓' : '✗'} {geminiTestResult.text}
+                </div>
+              {/if}
+            </div>
+
+            <div class="space-y-2">
+              <label for="input-gemini-model" class="text-xs font-mono text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <span>Default Gemini Model</span>
+                <span class="text-[10px] text-slate-400 dark:text-slate-500">e.g. gemini-2.5-flash</span>
+              </label>
+              <input
+                id="input-gemini-model"
+                type="text"
+                bind:value={config.gemini_model}
+                class="glass-input w-full rounded-2xl px-3.5 py-2 text-xs font-mono"
+                placeholder="gemini-2.5-flash"
               />
             </div>
           </div>

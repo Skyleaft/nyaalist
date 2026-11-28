@@ -15,11 +15,13 @@ use crate::features::encoder::models::{EncodingJob, QueueJobRequest};
 use crate::features::encoder::routes::queue_job_internal;
 use crate::features::library::models::{
     AutoOrganizeRequest, EncodeFileRequest, LibraryFile, LibraryFileItem, LibraryFilesQuery, MoveFileRequest,
-    ScanDirectoryResult,
+    ScanDirectoryResult, TranslateFileRequest,
 };
 use crate::features::library::organizer::{
     auto_organize_file, move_or_copy_file, scan_and_sync_downloads,
 };
+use crate::features::translator::models::{QueueTranslationRequest, TranslationJob};
+use crate::features::translator::routes::queue_translation_internal;
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -29,6 +31,7 @@ pub fn router() -> Router<AppState> {
         .route("/auto-organize", post(auto_organize_endpoint))
         .route("/files/:id", delete(delete_library_file))
         .route("/files/:id/encode", post(encode_library_file))
+        .route("/files/:id/translate", post(translate_library_file))
 }
 
 async fn get_library_files(
@@ -251,5 +254,42 @@ async fn encode_library_file(
 
     let job = queue_job_internal(&state, queue_payload).await?;
     info!("Queued encode job {} for library file {}", job.id, file.id);
+    Ok(Json(job))
+}
+
+async fn translate_library_file(
+    State(state): State<AppState>,
+    AxumPath(id): AxumPath<Uuid>,
+    Json(payload): Json<TranslateFileRequest>,
+) -> Result<Json<TranslationJob>, AppError> {
+    let file = sqlx::query_as::<_, LibraryFile>(
+        r#"
+        SELECT
+            id, download_job_id, anilist_id, original_filename, current_path,
+            target_library_path, episode, season, resolution, file_size_bytes,
+            is_moved, is_encoded, created_at, updated_at
+        FROM library_files
+        WHERE id = $1
+        "#
+    )
+    .bind(id)
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or_else(|| AppError::NotFound(format!("Library file not found with ID {id}")))?;
+
+    let queue_payload = QueueTranslationRequest {
+        library_file_id: Some(file.id),
+        source_file_path: file.current_path,
+        target_file_path: payload.target_file_path,
+        source_stream_index: payload.source_stream_index,
+        source_language: payload.source_language,
+        target_language: payload.target_language,
+        target_language_code: payload.target_language_code,
+        gemini_model: payload.gemini_model,
+        embed_mode: payload.embed_mode,
+    };
+
+    let job = queue_translation_internal(&state, queue_payload).await?;
+    info!("Queued AI translation job {} for library file {}", job.id, file.id);
     Ok(Json(job))
 }

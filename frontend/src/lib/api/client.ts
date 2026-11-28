@@ -21,7 +21,14 @@ import type {
   QueueJobRequest,
   AppConfigDto,
   UpdateConfigRequest,
-  PathValidationResponse
+  PathValidationResponse,
+  TranslatorStatusResponse,
+  ProbeSubtitlesResponse,
+  TranslationJob,
+  TranslationJobItem,
+  QueueTranslationRequest,
+  TranslateFileRequest,
+  TestGeminiKeyResponse
 } from './types';
 export function getApiBase(): string {
   const customUrl = import.meta.env.PUBLIC_API_URL;
@@ -160,7 +167,44 @@ export const api = {
       request<EncodingJob>(`/library/files/${id}/encode`, {
         method: 'POST',
         body: JSON.stringify(payload || {})
+      }),
+    translateFile: (id: string, payload: TranslateFileRequest) =>
+      request<TranslationJob>(`/library/files/${id}/translate`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
       })
+  },
+  translator: {
+    getStatus: () => request<TranslatorStatusResponse>('/translator/status'),
+    testKey: (payload: { api_key?: string; model?: string }) =>
+      request<TestGeminiKeyResponse>('/translator/test-key', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      }),
+    probeSubtitles: (file_path: string) =>
+      request<ProbeSubtitlesResponse>('/translator/probe', {
+        method: 'POST',
+        body: JSON.stringify({ file_path })
+      }),
+    getJobs: (status?: string) => {
+      const sp = new URLSearchParams();
+      if (status && status !== 'ALL') sp.set('status', status);
+      return request<TranslationJobItem[]>(`/translator/jobs?${sp.toString()}`);
+    },
+    queueJob: (payload: QueueTranslationRequest) =>
+      request<TranslationJob>('/translator/jobs', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      }),
+    cancelJob: (id: string) =>
+      request<{ status: string; message: string }>(`/translator/jobs/${id}/cancel`, {
+        method: 'POST'
+      }),
+    deleteJob: (id: string) =>
+      request<{ status: string; message: string }>(`/translator/jobs/${id}`, {
+        method: 'DELETE'
+      }),
+    getSubtitleDownloadUrl: (id: string) => `${getApiBase()}/translator/jobs/${id}/subtitle`
   },
   encoder: {
     getPresets: () => request<EncodingPreset[]>('/encoder/presets'),

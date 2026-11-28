@@ -49,6 +49,17 @@ pub struct EncodeFileRequest {
     pub target_file_path: Option<String>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct TranslateFileRequest {
+    pub source_stream_index: Option<i32>,
+    pub source_language: Option<String>,
+    pub target_language: String,
+    pub target_language_code: Option<String>,
+    pub gemini_model: Option<String>,
+    pub embed_mode: Option<String>,
+    pub target_file_path: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScanDirectoryResult {
     pub scanned_count: usize,
