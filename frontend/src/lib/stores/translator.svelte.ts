@@ -23,13 +23,6 @@ export const TARGET_LANGUAGE_OPTIONS = [
   { label: 'Portuguese', code: 'por' }
 ] as const;
 
-export const GEMINI_MODEL_OPTIONS = [
-  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Recommended)' },
-  { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash-Lite (Fastest)' },
-  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (Highest Nuance)' },
-  { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' }
-] as const;
-
 const ACTIVE_STATUSES = new Set(['EXTRACTING', 'TRANSLATING', 'EMBEDDING']);
 
 class TranslatorStore {

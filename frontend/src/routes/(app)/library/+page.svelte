@@ -4,7 +4,7 @@
   import { cubicOut } from 'svelte/easing';
   import { library } from '#lib/stores/library.svelte';
   import { api } from '#lib/api/client';
-  import { GEMINI_MODEL_OPTIONS, TARGET_LANGUAGE_OPTIONS } from '#lib/stores/translator.svelte';
+  import { TARGET_LANGUAGE_OPTIONS } from '#lib/stores/translator.svelte';
   import type { LibraryFileItem, EncodingPreset, SubtitleTrack } from '#lib/api/types';
   import {
     Library,
@@ -56,7 +56,7 @@
   let translateLangPreset = $state<string>('Indonesian');
   let translateCustomLang = $state('');
   let translateLangCode = $state('ind');
-  let translateModel = $state('gemini-2.5-flash');
+  let translateConfiguredModel = $state<string | null>(null);
   let translateEmbedMode = $state<'mux_keep_original' | 'mux_replace'>('mux_keep_original');
   let translateOutputPath = $state('');
   let isTranslating = $state(false);
@@ -286,7 +286,7 @@
       translateWarnings = probeRes.warnings;
       translateStreamIndex = probeRes.recommended_stream_index ?? null;
       if (statusRes?.default_model) {
-        translateModel = statusRes.default_model;
+        translateConfiguredModel = statusRes.default_model;
       }
     } catch (err: any) {
       translateError = err.message || 'Failed to inspect embedded subtitle tracks';
@@ -310,7 +310,6 @@
         source_stream_index: translateStreamIndex ?? undefined,
         target_language: targetLang,
         target_language_code: translateLangCode.trim() || undefined,
-        gemini_model: translateModel,
         embed_mode: translateEmbedMode,
         target_file_path: translateOutputPath.trim() || undefined
       });
@@ -1003,37 +1002,25 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div class="space-y-1.5">
-            <label for="lib-tr-model" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">GEMINI MODEL</label>
-            <select
-              id="lib-tr-model"
-              bind:value={translateModel}
-              class="glass-input w-full rounded-2xl px-3.5 py-2.5"
-            >
-              {#each GEMINI_MODEL_OPTIONS as m}
-                <option value={m.id} class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
-                  {m.label}
-                </option>
-              {/each}
-            </select>
-          </div>
-
-          <div class="space-y-1.5">
-            <label for="lib-tr-mode" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">EMBED MODE</label>
-            <select
-              id="lib-tr-mode"
-              bind:value={translateEmbedMode}
-              class="glass-input w-full rounded-2xl px-3.5 py-2.5"
-            >
-              <option value="mux_keep_original" class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
-                Keep Original + Add Translated
-              </option>
-              <option value="mux_replace" class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
-                Replace Existing Subtitles
-              </option>
-            </select>
-          </div>
+        <div class="space-y-1.5">
+          <label for="lib-tr-mode" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">EMBED MODE</label>
+          <select
+            id="lib-tr-mode"
+            bind:value={translateEmbedMode}
+            class="glass-input w-full rounded-2xl px-3.5 py-2.5"
+          >
+            <option value="mux_keep_original" class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
+              Keep Original + Add Translated
+            </option>
+            <option value="mux_replace" class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
+              Replace Existing Subtitles
+            </option>
+          </select>
+          {#if translateConfiguredModel}
+            <div class="text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+              Configured Model: <strong class="text-cyan-600 dark:text-cyan-300">{translateConfiguredModel}</strong> (managed in <a href="/settings" class="underline">Settings</a>)
+            </div>
+          {/if}
         </div>
 
         <div class="space-y-1.5">
