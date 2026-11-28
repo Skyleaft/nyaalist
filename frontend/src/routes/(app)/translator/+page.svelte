@@ -6,7 +6,6 @@
   import { auth } from '#lib/stores/auth.svelte';
   import { library } from '#lib/stores/library.svelte';
   import {
-    GEMINI_MODEL_OPTIONS,
     TARGET_LANGUAGE_OPTIONS,
     translator
   } from '#lib/stores/translator.svelte';
@@ -42,8 +41,6 @@
   let targetLangPreset = $state<string>('Indonesian');
   let customTargetLang = $state('');
   let targetLangCode = $state('ind');
-  let selectedModelPreset = $state<string>('gemini-2.5-flash');
-  let customModel = $state('');
   let embedMode = $state<'mux_keep_original' | 'mux_replace'>('mux_keep_original');
 
   // Subtitle track probing
@@ -56,26 +53,8 @@
   let isQueueing = $state(false);
   let queueError = $state<string | null>(null);
 
-  // Quick API Key Modal (admin)
-  let isKeyModalOpen = $state(false);
-  let apiKeyInput = $state('');
-  let defaultModelInput = $state('gemini-2.5-flash');
-  let testingKey = $state(false);
-  let savingKey = $state(false);
-  let keyMessage = $state<{ type: 'success' | 'error'; text: string } | null>(null);
-
   onMount(async () => {
     await Promise.all([translator.init(), library.fetchFiles()]);
-    if (translator.status?.default_model) {
-      const known = GEMINI_MODEL_OPTIONS.some(m => m.id === translator.status?.default_model);
-      if (known) {
-        selectedModelPreset = translator.status.default_model;
-      } else {
-        selectedModelPreset = 'custom';
-        customModel = translator.status.default_model;
-      }
-      defaultModelInput = translator.status.default_model;
-    }
   });
 
   const activeStatuses = new Set(['EXTRACTING', 'TRANSLATING', 'EMBEDDING']);
@@ -102,10 +81,6 @@
 
   const effectiveTargetLanguage = $derived(
     targetLangPreset === 'custom' ? customTargetLang.trim() : targetLangPreset
-  );
-
-  const effectiveModel = $derived(
-    selectedModelPreset === 'custom' ? customModel.trim() : selectedModelPreset
   );
 
   function handleTargetLangChange() {
@@ -147,15 +122,6 @@
     probeWarnings = [];
     probedTracks = [];
     selectedStreamIndex = null;
-    if (translator.status?.default_model) {
-      const known = GEMINI_MODEL_OPTIONS.some(m => m.id === translator.status?.default_model);
-      if (known) {
-        selectedModelPreset = translator.status.default_model;
-      } else {
-        selectedModelPreset = 'custom';
-        customModel = translator.status.default_model;
-      }
-    }
     isModalOpen = true;
   }
 
@@ -194,7 +160,6 @@
         source_stream_index: selectedStreamIndex ?? undefined,
         target_language: effectiveTargetLanguage,
         target_language_code: targetLangCode.trim() || undefined,
-        gemini_model: effectiveModel || undefined,
         embed_mode: embedMode
       });
       isModalOpen = false;
@@ -224,45 +189,6 @@
       await translator.deleteJob(job.id);
     } catch (err: any) {
       alert(`Delete failed: ${err.message}`);
-    }
-  }
-
-  async function handleTestApiKey() {
-    testingKey = true;
-    keyMessage = null;
-    try {
-      const res = await api.translator.testKey({
-        api_key: apiKeyInput.trim() || undefined,
-        model: defaultModelInput.trim() || undefined
-      });
-      keyMessage = { type: 'success', text: res.message };
-    } catch (err: any) {
-      keyMessage = { type: 'error', text: err.message || 'API key validation failed' };
-    } finally {
-      testingKey = false;
-    }
-  }
-
-  async function handleSaveApiKey(e: Event) {
-    e.preventDefault();
-    savingKey = true;
-    keyMessage = null;
-    try {
-      await api.config.update({
-        gemini_api_key: apiKeyInput.trim() || undefined,
-        gemini_model: defaultModelInput.trim() || undefined
-      });
-      await translator.fetchStatus();
-      apiKeyInput = '';
-      keyMessage = { type: 'success', text: 'Google AI Studio settings saved!' };
-      setTimeout(() => {
-        isKeyModalOpen = false;
-        keyMessage = null;
-      }, 1200);
-    } catch (err: any) {
-      keyMessage = { type: 'error', text: err.message || 'Failed to save API key' };
-    } finally {
-      savingKey = false;
     }
   }
 
@@ -322,24 +248,30 @@
         </span>
       </div>
 
-      <!-- API Key Status Pill -->
+      <!-- API Key & Model Status Pill -->
       {#if auth.user?.role === 'admin'}
-        <button
-          onclick={() => {
-            keyMessage = null;
-            isKeyModalOpen = true;
-          }}
+        <a
+          href="/settings"
           class="btn-expressive px-4 py-2 rounded-2xl glass-pill font-mono text-xs cursor-pointer flex items-center gap-2 {translator.status?.gemini_configured
             ? 'text-emerald-600 dark:text-emerald-300 border-emerald-500/30'
             : 'text-amber-600 dark:text-amber-300 border-amber-500/30'}"
+          title="Configure Google AI Studio API key & model in System Settings"
         >
           <KeyRound class="w-3.5 h-3.5" />
-          <span>{translator.status?.gemini_configured ? 'Gemini Key Active' : 'Configure API Key'}</span>
-        </button>
+          <span>
+            {translator.status?.gemini_configured
+              ? `Gemini (${translator.status.default_model})`
+              : 'Configure in Settings'}
+          </span>
+        </a>
       {:else}
         <div class="glass-pill px-3.5 py-2 rounded-2xl font-mono text-xs flex items-center gap-2">
           <KeyRound class="w-3.5 h-3.5 {translator.status?.gemini_configured ? 'text-emerald-400' : 'text-amber-400'}" />
-          <span>{translator.status?.gemini_configured ? 'Gemini Ready' : 'Key Missing'}</span>
+          <span>
+            {translator.status?.gemini_configured
+              ? `Gemini (${translator.status.default_model})`
+              : 'Key Missing'}
+          </span>
         </div>
       {/if}
 
@@ -359,21 +291,16 @@
       <div class="flex items-center gap-2.5 text-amber-700 dark:text-amber-200">
         <AlertCircle class="w-4 h-4 shrink-0 text-amber-500" />
         <span>
-          Google AI Studio API key is not configured yet. Set it to start translating subtitles.
+          Google AI Studio API key is not configured yet. Set your key and model in System Settings to start translating subtitles.
         </span>
       </div>
       {#if auth.user?.role === 'admin'}
-        <div class="flex items-center gap-2">
-          <button
-            onclick={() => (isKeyModalOpen = true)}
-            class="btn-expressive px-3.5 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-bold cursor-pointer"
-          >
-            Set API Key
-          </button>
-          <a href="/settings" class="underline text-cyan-600 dark:text-cyan-300">
-            Settings &rarr;
-          </a>
-        </div>
+        <a
+          href="/settings"
+          class="btn-expressive px-3.5 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-bold cursor-pointer whitespace-nowrap"
+        >
+          Open Settings &rarr;
+        </a>
       {/if}
     </div>
   {/if}
@@ -853,52 +780,31 @@
           </div>
         </div>
 
-        <!-- Gemini Model & Embed Mode -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div class="space-y-1.5">
-            <label for="tr-model" class="block text-slate-600 dark:text-slate-400 font-bold uppercase text-[10px]">
-              GOOGLE AI STUDIO MODEL
-            </label>
-            <select
-              id="tr-model"
-              bind:value={selectedModelPreset}
-              class="glass-input w-full rounded-2xl px-3.5 py-2.5"
-            >
-              {#each GEMINI_MODEL_OPTIONS as m}
-                <option value={m.id} class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
-                  {m.label}
-                </option>
-              {/each}
-              <option value="custom" class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Custom Model ID...</option>
-            </select>
-            {#if selectedModelPreset === 'custom'}
-              <input
-                type="text"
-                required
-                bind:value={customModel}
-                placeholder="e.g. gemini-2.5-flash"
-                class="glass-input w-full rounded-2xl px-3.5 py-2 mt-1.5"
-              />
-            {/if}
-          </div>
-
-          <div class="space-y-1.5">
-            <label for="tr-embed-mode" class="block text-slate-600 dark:text-slate-400 font-bold uppercase text-[10px]">
-              VIDEO EMBED MODE
-            </label>
-            <select
-              id="tr-embed-mode"
-              bind:value={embedMode}
-              class="glass-input w-full rounded-2xl px-3.5 py-2.5"
-            >
-              <option value="mux_keep_original" class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
-                Keep Original + Add Translated (Default)
-              </option>
-              <option value="mux_replace" class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
-                Replace Existing Subtitle Tracks
-              </option>
-            </select>
-          </div>
+        <!-- Embed Mode & Active Model Info -->
+        <div class="space-y-1.5">
+          <label for="tr-embed-mode" class="block text-slate-600 dark:text-slate-400 font-bold uppercase text-[10px]">
+            VIDEO EMBED MODE
+          </label>
+          <select
+            id="tr-embed-mode"
+            bind:value={embedMode}
+            class="glass-input w-full rounded-2xl px-3.5 py-2.5"
+          >
+            <option value="mux_keep_original" class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
+              Keep Original + Add Translated (Default)
+            </option>
+            <option value="mux_replace" class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
+              Replace Existing Subtitle Tracks
+            </option>
+          </select>
+          {#if translator.status?.default_model}
+            <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+              <span>Active Model: <strong class="text-cyan-600 dark:text-cyan-300">{translator.status.default_model}</strong></span>
+              {#if auth.user?.role === 'admin'}
+                <a href="/settings" class="underline hover:text-cyan-500">Change in Settings &rarr;</a>
+              {/if}
+            </div>
+          {/if}
         </div>
 
         <!-- Target Output Video Path -->
@@ -942,99 +848,6 @@
               <span>Start AI Translation</span>
             {/if}
           </button>
-        </div>
-      </form>
-    </div>
-  </div>
-{/if}
-
-<!-- Quick API Key Modal (Admin) -->
-{#if isKeyModalOpen}
-  <div
-    transition:fade={{ duration: 200, easing: cubicOut }}
-    class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl"
-  >
-    <div
-      transition:scale={{ duration: 260, start: 0.94, opacity: 0, easing: cubicOut }}
-      class="glass-panel-elevated rounded-3xl p-6 max-w-lg w-full shadow-2xl relative space-y-4 border border-slate-200/80 dark:border-white/15"
-    >
-      <div class="flex justify-between items-center">
-        <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <KeyRound class="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
-          <span>Google AI Studio Configuration</span>
-        </h3>
-        <button
-          onclick={() => (isKeyModalOpen = false)}
-          class="btn-expressive p-2 rounded-full glass-pill text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
-        >
-          <X class="w-4 h-4" />
-        </button>
-      </div>
-
-      <form onsubmit={handleSaveApiKey} class="space-y-4 text-xs font-mono">
-        <div class="space-y-1.5">
-          <label for="quick-gemini-key" class="block text-slate-600 dark:text-slate-400 font-bold uppercase text-[10px]">
-            GOOGLE AI STUDIO API KEY
-          </label>
-          <input
-            id="quick-gemini-key"
-            type="password"
-            bind:value={apiKeyInput}
-            placeholder={translator.status?.gemini_configured ? '•••••••••••• (leave empty to keep current key)' : 'AIza...'}
-            class="glass-input w-full rounded-2xl px-3.5 py-2.5"
-          />
-          <p class="text-[11px] text-slate-500 dark:text-slate-400">
-            Create or manage keys in Google AI Studio. Stored securely on the backend server.
-          </p>
-        </div>
-
-        <div class="space-y-1.5">
-          <label for="quick-gemini-model" class="block text-slate-600 dark:text-slate-400 font-bold uppercase text-[10px]">
-            DEFAULT GEMINI MODEL
-          </label>
-          <input
-            id="quick-gemini-model"
-            type="text"
-            bind:value={defaultModelInput}
-            placeholder="gemini-2.5-flash"
-            class="glass-input w-full rounded-2xl px-3.5 py-2.5"
-          />
-        </div>
-
-        {#if keyMessage}
-          <div class="p-3 rounded-2xl border {keyMessage.type === 'success'
-            ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-600 dark:text-emerald-300'
-            : 'bg-rose-500/10 border-rose-500/40 text-rose-600 dark:text-rose-300'}">
-            {keyMessage.text}
-          </div>
-        {/if}
-
-        <div class="flex justify-between items-center gap-3 pt-2">
-          <button
-            type="button"
-            onclick={handleTestApiKey}
-            disabled={testingKey}
-            class="btn-expressive px-4 py-2 rounded-2xl glass-pill text-cyan-600 dark:text-cyan-300 border-cyan-400/30 cursor-pointer"
-          >
-            {testingKey ? 'Testing...' : 'Test Connection'}
-          </button>
-
-          <div class="flex gap-2">
-            <button
-              type="button"
-              onclick={() => (isKeyModalOpen = false)}
-              class="btn-expressive px-4 py-2 rounded-2xl glass-pill text-slate-700 dark:text-slate-300 cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={savingKey}
-              class="btn-expressive px-5 py-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 text-white font-bold cursor-pointer"
-            >
-              {savingKey ? 'Saving...' : 'Save'}
-            </button>
-          </div>
         </div>
       </form>
     </div>
