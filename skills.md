@@ -6,13 +6,13 @@ This document outlines the core engineering capabilities, architectural patterns
 
 ## 1. System Architecture Overview
 
-Nyaalist is an all-in-one, self-hosted anime torrent manager, automated library organizer, and FFmpeg transcoding suite designed with a dark, telemetry-first technical dashboard.
+Nyaalist is an all-in-one, self-hosted anime torrent manager, automated library organizer, AI subtitle translator, and FFmpeg transcoding suite built with an adaptive Material Design 3 Expressive telemetry dashboard.
 
 ```
                     ┌───────────────────────────────┐
-                    │     Frontend (SvelteKit 2)    │
+                    │     Frontend (SvelteKit 3)    │
                     │   Svelte 5 Runes + Tailwind 4 │
-                    │    WattVision Technical UI    │
+                    │  Material Design 3 Expressive │
                     └───────┬───────────────▲───────┘
                             │ REST          │ WebSocket
                             │ (JSON)        │ (Events)
@@ -96,21 +96,23 @@ Nyaalist is an all-in-one, self-hosted anime torrent manager, automated library 
     ```
   - Supports custom tokens, formatting, and manual directory moves.
 
-### 2.6 Frontend Architecture (SvelteKit 2 & Svelte 5)
-- **Svelte 5 Runes:** Universal reactivity via `$state`, `$derived`, `$props`, and `$effect`.
-- **Tailwind CSS v4:** Theme configuration using the "WattVision" design system:
-  - Primary Background: `#121212`
-  - Card Surface: `#1E1E1E`
-  - Accent / Primary Cyan: `#00E5FF`
-  - Success / Lime: `#32D74B`
-  - Warning / Alert: `#FF453A`
-  - Border Lines: `#2C2C2E`
-  - Monospace Fonts: JetBrains Mono / Fira Code for telemetry figures.
+### 2.6 Frontend Architecture (SvelteKit 3 & Svelte 5)
+- **Framework & Tooling:** SvelteKit 3 (`@sveltejs/kit` ^3.4) with Vite 8 (`@sveltejs/adapter-node` configured directly inside `frontend/vite.config.ts`, no `svelte.config.js`), path aliases (`#lib/*`, `$lib`), and Svelte 5 Runes (`$state`, `$derived`, `$props`, `$effect`).
+- **Tailwind CSS v4 & Material Design 3 Expressive:** Configured in `frontend/src/app.css` with `@custom-variant dark`, adaptive `light` / `dark` / `auto` theming (`data-theme` + `.dark` class), and expressive glassmorphic surfaces:
+  - **Light Mode Tokens:** Background `#F8FAFC`, Glass Surfaces `rgba(255, 255, 255, 0.72–0.96)`, Primary `#0284C7`, Secondary `#7C3AED`, Tertiary `#059669`, Alert `#E11D48`, Warning `#D97706`, Text `#0F172A` / `#475569`.
+  - **Dark Mode Tokens:** Background `#0A0E17`, Glass Surfaces `rgba(13–26, 20–38, 36–64, 0.70–0.90)`, Primary `#00E5FF`, Secondary `#B388FF`, Tertiary `#69F0AE`, Alert `#FF5252`, Warning `#FFD740`, Text `#F0F4F8` / `#94A3B8`.
+  - **Expressive Shape, Surfaces & Motion:**
+    - Pill-shaped floating top navigation (`rounded-2xl md:rounded-full`) with Svelte `crossfade` active pill transitions and `cubicOut` route `fade` transitions.
+    - Tactile `.btn-expressive` spring physics (`cubic-bezier(0.34, 1.56, 0.64, 1)` hover lift and active press scale).
+    - Layered glass primitives (`.glass-panel`, `.glass-panel-elevated`, `.glass-card-interactive`, `.glass-pill`, `.glass-input`) with ambient aurora orb animations.
+  - **Typography:** `Plus Jakarta Sans` / `Inter` / `Outfit` for UI and `Fira Code` (`.font-mono`) for telemetry figures.
 - **Store Architecture:** Reactive singleton stores in `#lib/stores/`:
   - `auth.svelte.ts`: Session state, login, and setup checks.
+  - `theme.svelte.ts`: 3-way theme controller (`dark` | `light` | `auto`) persisted in `localStorage` with OS `prefers-color-scheme` sync.
   - `torrents.svelte.ts`: Active download jobs and WebSocket speed telemetry.
   - `library.svelte.ts`: Tracked files, organize actions, scan triggers, encode actions.
   - `encoder.svelte.ts`: Encoding presets, job queues, live transcode telemetry.
+  - `translator.svelte.ts`: AI subtitle translation jobs, language presets, and live WebSocket progress telemetry.
 
 ---
 
@@ -157,12 +159,12 @@ cargo test --manifest-path backend/Cargo.toml
 cargo run --manifest-path backend/Cargo.toml
 ```
 
-### Frontend (SvelteKit)
+### Frontend (SvelteKit 3)
 ```bash
 # Install dependencies
 pnpm --dir frontend install
 
-# Start Vite development server (default port: 3000)
+# Start Vite development server (default port: 3040)
 pnpm --dir frontend run dev
 
 # Run TypeScript and Svelte check
