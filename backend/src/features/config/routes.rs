@@ -4,7 +4,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use sea_orm::{ActiveModelTrait, EntityTrait, Set};
+use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, Set};
 use serde_json::json;
 
 use crate::core::error::AppError;
@@ -18,6 +18,56 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(get_config).post(update_config))
         .route("/validate-path", post(validate_path))
+}
+
+pub fn mask_api_key(key: &str) -> String {
+    let trimmed = key.trim();
+    let chars: Vec<char> = trimmed.chars().collect();
+    if chars.len() <= 8 {
+        return "••••••••".to_string();
+    }
+    let prefix: String = chars[..4].iter().collect();
+    let suffix: String = chars[chars.len() - 4..].iter().collect();
+    format!("{prefix}••••{suffix}")
+}
+
+/// Resolves the active Google AI Studio API key and Gemini model,
+/// preferring runtime DB settings in `app_config` ("settings") over environment variables.
+pub async fn resolve_gemini_settings(
+    sea_db: &DatabaseConnection,
+    env_api_key: Option<&str>,
+    env_model: &str,
+) -> (Option<String>, String) {
+    let dynamic_settings = app_config::Entity::find_by_id("settings")
+        .one(sea_db)
+        .await
+        .ok()
+        .flatten();
+
+    let mut api_key = env_api_key
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let mut model = env_model.trim().to_string();
+    if model.is_empty() {
+        model = "gemini-2.5-flash".to_string();
+    }
+
+    if let Some(cfg) = dynamic_settings {
+        if let Some(v) = cfg.value.get("gemini_api_key").and_then(|v| v.as_str()) {
+            let trimmed = v.trim();
+            if !trimmed.is_empty() {
+                api_key = Some(trimmed.to_string());
+            }
+        }
+        if let Some(v) = cfg.value.get("gemini_model").and_then(|v| v.as_str()) {
+            let trimmed = v.trim();
+            if !trimmed.is_empty() {
+                model = trimmed.to_string();
+            }
+        }
+    }
+
+    (api_key, model)
 }
 
 async fn get_config(
@@ -36,6 +86,8 @@ async fn get_config(
     let mut dl_limit = state.config.torrent_global_download_limit_kbps;
     let mut ul_limit = state.config.torrent_global_upload_limit_kbps;
     let mut preset = state.config.encoder_default_preset.clone();
+    let mut gemini_key = state.config.gemini_api_key.clone();
+    let mut gemini_model = state.config.gemini_model.clone();
 
     if let Some(cfg) = dynamic_settings {
         if let Some(v) = cfg.value.get("downloads_dir").and_then(|v| v.as_str()) {
@@ -56,7 +108,22 @@ async fn get_config(
         if let Some(v) = cfg.value.get("encoder_default_preset").and_then(|v| v.as_str()) {
             preset = v.to_string();
         }
+        if let Some(v) = cfg.value.get("gemini_api_key").and_then(|v| v.as_str()) {
+            let trimmed = v.trim();
+            if !trimmed.is_empty() {
+                gemini_key = Some(trimmed.to_string());
+            }
+        }
+        if let Some(v) = cfg.value.get("gemini_model").and_then(|v| v.as_str()) {
+            let trimmed = v.trim();
+            if !trimmed.is_empty() {
+                gemini_model = trimmed.to_string();
+            }
+        }
     }
+
+    let gemini_api_key_configured = gemini_key.as_ref().is_some_and(|k| !k.trim().is_empty());
+    let gemini_api_key_masked = gemini_key.as_deref().map(mask_api_key);
 
     let cfg = AppConfigDto {
         downloads_dir: dl,
@@ -73,6 +140,9 @@ async fn get_config(
         ffmpeg_binary_path: state.config.ffmpeg_binary_path.clone(),
         ffprobe_binary_path: state.config.ffprobe_binary_path.clone(),
         encoder_default_preset: preset,
+        gemini_api_key_configured,
+        gemini_api_key_masked,
+        gemini_model,
     };
 
     Ok(Json(cfg))
@@ -101,20 +171,50 @@ async fn update_config(
         }
     }
 
-    // Persist into app_config table via SeaORM
-    let config_val = json!({
-        "downloads_dir": payload.downloads_dir,
-        "library_dir": payload.library_dir,
-        "nyaa_default_category": payload.nyaa_default_category,
-        "torrent_global_download_limit_kbps": payload.torrent_global_download_limit_kbps,
-        "torrent_global_upload_limit_kbps": payload.torrent_global_upload_limit_kbps,
-        "encoder_default_preset": payload.encoder_default_preset,
-    });
-
     let existing = app_config::Entity::find_by_id("settings")
         .one(&state.sea_db)
         .await
         .map_err(|e| AppError::Internal(format!("Failed to query app_config via SeaORM: {e}")))?;
+
+    let mut merged = existing
+        .as_ref()
+        .and_then(|c| c.value.as_object().cloned())
+        .unwrap_or_default();
+
+    if let Some(v) = payload.downloads_dir {
+        merged.insert("downloads_dir".into(), json!(v));
+    }
+    if let Some(v) = payload.library_dir {
+        merged.insert("library_dir".into(), json!(v));
+    }
+    if let Some(v) = payload.nyaa_default_category {
+        merged.insert("nyaa_default_category".into(), json!(v));
+    }
+    if let Some(v) = payload.torrent_global_download_limit_kbps {
+        merged.insert("torrent_global_download_limit_kbps".into(), json!(v));
+    }
+    if let Some(v) = payload.torrent_global_upload_limit_kbps {
+        merged.insert("torrent_global_upload_limit_kbps".into(), json!(v));
+    }
+    if let Some(v) = payload.encoder_default_preset {
+        merged.insert("encoder_default_preset".into(), json!(v));
+    }
+    if payload.clear_gemini_api_key.unwrap_or(false) {
+        merged.remove("gemini_api_key");
+    } else if let Some(key) = payload.gemini_api_key {
+        let trimmed = key.trim();
+        if !trimmed.is_empty() {
+            merged.insert("gemini_api_key".into(), json!(trimmed));
+        }
+    }
+    if let Some(model) = payload.gemini_model {
+        let trimmed = model.trim();
+        if !trimmed.is_empty() {
+            merged.insert("gemini_model".into(), json!(trimmed));
+        }
+    }
+
+    let config_val = serde_json::Value::Object(merged);
 
     if let Some(cfg) = existing {
         let mut active: app_config::ActiveModel = cfg.into();

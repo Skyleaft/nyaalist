@@ -16,6 +16,7 @@
     DownloadCloud,
     FolderKanban,
     HardDrive,
+    Languages,
     Layers,
     Play,
     Plus,
@@ -499,6 +500,19 @@
               <span>Video Transcoder Queue</span>
             </div>
             <ArrowUpRight class="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-purple-600 dark:group-hover:text-purple-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+          </a>
+
+          <a
+            href="/translator"
+            class="flex items-center justify-between p-3 rounded-2xl glass-pill hover:bg-cyan-500/10 hover:border-cyan-400/30 text-xs font-medium text-slate-700 dark:text-slate-200 hover:text-cyan-600 dark:hover:text-cyan-300 transition-all group btn-expressive"
+          >
+            <div class="flex items-center gap-3">
+              <div class="p-1.5 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-300 border border-cyan-500/20">
+                <Languages class="w-4 h-4" />
+              </div>
+              <span>AI Subtitle Translator</span>
+            </div>
+            <ArrowUpRight class="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-cyan-600 dark:group-hover:text-cyan-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
           </a>
 
           <a

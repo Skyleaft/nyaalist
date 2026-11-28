@@ -16,6 +16,9 @@ pub struct AppConfigDto {
     pub ffmpeg_binary_path: String,
     pub ffprobe_binary_path: String,
     pub encoder_default_preset: String,
+    pub gemini_api_key_configured: bool,
+    pub gemini_api_key_masked: Option<String>,
+    pub gemini_model: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -26,6 +29,9 @@ pub struct UpdateConfigRequest {
     pub torrent_global_download_limit_kbps: Option<u64>,
     pub torrent_global_upload_limit_kbps: Option<u64>,
     pub encoder_default_preset: Option<String>,
+    pub gemini_api_key: Option<String>,
+    pub clear_gemini_api_key: Option<bool>,
+    pub gemini_model: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -6,4 +6,5 @@ pub use super::encoding_presets::Entity as EncodingPresets;
 pub use super::library_files::Entity as LibraryFiles;
 pub use super::nyaa_torrents::Entity as NyaaTorrents;
 pub use super::title_mappings::Entity as TitleMappings;
+pub use super::translation_jobs::Entity as TranslationJobs;
 pub use super::users::Entity as Users;

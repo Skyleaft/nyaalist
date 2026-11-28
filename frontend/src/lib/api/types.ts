@@ -285,6 +285,9 @@ export interface AppConfigDto {
   ffmpeg_binary_path: string;
   ffprobe_binary_path: string;
   encoder_default_preset: string;
+  gemini_api_key_configured: boolean;
+  gemini_api_key_masked?: string | null;
+  gemini_model: string;
 }
 
 export interface UpdateConfigRequest {
@@ -294,6 +297,9 @@ export interface UpdateConfigRequest {
   torrent_global_download_limit_kbps?: number;
   torrent_global_upload_limit_kbps?: number;
   encoder_default_preset?: string;
+  gemini_api_key?: string;
+  clear_gemini_api_key?: boolean;
+  gemini_model?: string;
 }
 
 export interface ValidatePathRequest {
@@ -305,4 +311,115 @@ export interface PathValidationResponse {
   exists: boolean;
   is_dir: boolean;
   writable: boolean;
+}
+
+export interface SubtitleTrack {
+  stream_index: number;
+  sub_index: number;
+  codec_name: string;
+  language?: string | null;
+  title?: string | null;
+  is_text_based: boolean;
+  is_default: boolean;
+}
+
+export interface ProbeSubtitlesResponse {
+  file_path: string;
+  tracks: SubtitleTrack[];
+  recommended_stream_index?: number | null;
+  warnings: string[];
+}
+
+export type TranslationStatus =
+  | 'QUEUED'
+  | 'EXTRACTING'
+  | 'TRANSLATING'
+  | 'EMBEDDING'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'CANCELLED';
+
+export interface TranslationJob {
+  id: string;
+  library_file_id?: string | null;
+  source_file_path: string;
+  target_file_path: string;
+  extracted_sub_path?: string | null;
+  translated_sub_path?: string | null;
+  source_stream_index: number;
+  source_sub_codec?: string | null;
+  source_language?: string | null;
+  target_language: string;
+  target_language_code: string;
+  gemini_model: string;
+  embed_mode: 'mux_keep_original' | 'mux_replace';
+  status: TranslationStatus;
+  progress_pct: number;
+  total_cues: number;
+  translated_cues: number;
+  current_batch: number;
+  total_batches: number;
+  stage_message?: string | null;
+  error_message?: string | null;
+  created_at: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+}
+
+export interface TranslationJobItem extends TranslationJob {
+  source_filename: string;
+  target_filename: string;
+  has_translated_sub: boolean;
+}
+
+export interface TranslationProgressTelemetry {
+  job_id: string;
+  file_name: string;
+  target_language: string;
+  gemini_model: string;
+  status: TranslationStatus;
+  progress_pct: number;
+  total_cues: number;
+  translated_cues: number;
+  current_batch: number;
+  total_batches: number;
+  stage_message?: string | null;
+  error_message?: string | null;
+}
+
+export interface TranslatorStatusResponse {
+  gemini_configured: boolean;
+  default_model: string;
+  ffmpeg_available: boolean;
+  ffprobe_available: boolean;
+}
+
+export interface QueueTranslationRequest {
+  library_file_id?: string;
+  source_file_path: string;
+  target_file_path?: string;
+  source_stream_index?: number;
+  source_language?: string;
+  target_language: string;
+  target_language_code?: string;
+  gemini_model?: string;
+  embed_mode?: 'mux_keep_original' | 'mux_replace';
+}
+
+export interface TranslateFileRequest {
+  source_stream_index?: number;
+  source_language?: string;
+  target_language: string;
+  target_language_code?: string;
+  gemini_model?: string;
+  embed_mode?: 'mux_keep_original' | 'mux_replace';
+  target_file_path?: string;
+}
+
+export interface TestGeminiKeyResponse {
+  status: string;
+  valid: boolean;
+  model: string;
+  display_name: string;
+  message: string;
 }

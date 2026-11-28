@@ -4,7 +4,8 @@
   import { cubicOut } from 'svelte/easing';
   import { library } from '#lib/stores/library.svelte';
   import { api } from '#lib/api/client';
-  import type { LibraryFileItem, EncodingPreset } from '#lib/api/types';
+  import { GEMINI_MODEL_OPTIONS, TARGET_LANGUAGE_OPTIONS } from '#lib/stores/translator.svelte';
+  import type { LibraryFileItem, EncodingPreset, SubtitleTrack } from '#lib/api/types';
   import {
     Library,
     RefreshCw,
@@ -14,6 +15,7 @@
     CheckCircle2,
     Clock,
     Film,
+    Languages,
     Search,
     X,
     Move,
@@ -43,6 +45,23 @@
   let isEncoding = $state(false);
   let encodeError = $state<string | null>(null);
   let encodeSuccess = $state<string | null>(null);
+
+  // AI Translate modal state
+  let isTranslateModalOpen = $state(false);
+  let translateTargetFile = $state<LibraryFileItem | null>(null);
+  let translateTracks = $state<SubtitleTrack[]>([]);
+  let translateWarnings = $state<string[]>([]);
+  let translateProbing = $state(false);
+  let translateStreamIndex = $state<number | null>(null);
+  let translateLangPreset = $state<string>('Indonesian');
+  let translateCustomLang = $state('');
+  let translateLangCode = $state('ind');
+  let translateModel = $state('gemini-2.5-flash');
+  let translateEmbedMode = $state<'mux_keep_original' | 'mux_replace'>('mux_keep_original');
+  let translateOutputPath = $state('');
+  let isTranslating = $state(false);
+  let translateError = $state<string | null>(null);
+  let translateSuccess = $state<string | null>(null);
 
   const selectedPreset = $derived(
     presets.find(p => p.id === selectedPresetId)
@@ -224,6 +243,87 @@
       encodeError = err.message || 'Failed to queue encode job';
     } finally {
       isEncoding = false;
+    }
+  }
+
+  function updateTranslateOutputSuggestion() {
+    if (!translateTargetFile) return;
+    const source = translateTargetFile.current_path;
+    const lastDot = source.lastIndexOf('.');
+    const code = translateLangCode.trim() || 'sub';
+    if (lastDot > 0) {
+      translateOutputPath = `${source.substring(0, lastDot)} [${code}]${source.substring(lastDot)}`;
+    } else {
+      translateOutputPath = `${source} [${code}].mkv`;
+    }
+  }
+
+  function handleTranslateLangChange() {
+    const found = TARGET_LANGUAGE_OPTIONS.find(o => o.label === translateLangPreset);
+    if (found) {
+      translateLangCode = found.code;
+      updateTranslateOutputSuggestion();
+    }
+  }
+
+  async function openTranslateModal(item: LibraryFileItem) {
+    translateTargetFile = item;
+    translateError = null;
+    translateSuccess = null;
+    translateTracks = [];
+    translateWarnings = [];
+    translateStreamIndex = null;
+    updateTranslateOutputSuggestion();
+    isTranslateModalOpen = true;
+
+    translateProbing = true;
+    try {
+      const [probeRes, statusRes] = await Promise.all([
+        api.translator.probeSubtitles(item.current_path),
+        api.translator.getStatus().catch(() => null)
+      ]);
+      translateTracks = probeRes.tracks;
+      translateWarnings = probeRes.warnings;
+      translateStreamIndex = probeRes.recommended_stream_index ?? null;
+      if (statusRes?.default_model) {
+        translateModel = statusRes.default_model;
+      }
+    } catch (err: any) {
+      translateError = err.message || 'Failed to inspect embedded subtitle tracks';
+    } finally {
+      translateProbing = false;
+    }
+  }
+
+  async function handleQueueTranslate(e: Event) {
+    e.preventDefault();
+    if (!translateTargetFile) return;
+    const targetLang = translateLangPreset === 'custom' ? translateCustomLang.trim() : translateLangPreset;
+    if (!targetLang) return;
+
+    isTranslating = true;
+    translateError = null;
+    translateSuccess = null;
+
+    try {
+      await api.library.translateFile(translateTargetFile.id, {
+        source_stream_index: translateStreamIndex ?? undefined,
+        target_language: targetLang,
+        target_language_code: translateLangCode.trim() || undefined,
+        gemini_model: translateModel,
+        embed_mode: translateEmbedMode,
+        target_file_path: translateOutputPath.trim() || undefined
+      });
+      translateSuccess = `AI translation queued for "${translateTargetFile.original_filename}"!`;
+      setTimeout(() => {
+        isTranslateModalOpen = false;
+        translateTargetFile = null;
+        translateSuccess = null;
+      }, 1500);
+    } catch (err: any) {
+      translateError = err.message || 'Failed to queue AI translation job';
+    } finally {
+      isTranslating = false;
     }
   }
 </script>
@@ -520,6 +620,15 @@
                     </button>
 
                     <button
+                      onclick={() => openTranslateModal(item)}
+                      class="btn-expressive px-3 py-1 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-600 dark:text-cyan-300 border border-cyan-500/40 text-xs transition-colors cursor-pointer flex items-center gap-1"
+                      title="Extract, AI translate subtitle, and embed into video"
+                    >
+                      <Languages class="w-3.5 h-3.5" />
+                      <span>AI Sub...</span>
+                    </button>
+
+                    <button
                       onclick={() => openMoveModal(item)}
                       class="btn-expressive px-3 py-1 rounded-xl glass-pill text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-xs transition-colors cursor-pointer"
                       title="Move or rename file manually"
@@ -757,6 +866,205 @@
             {:else}
               <Zap class="w-4 h-4" />
               <span>Queue Encode Job</span>
+            {/if}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+{/if}
+
+<!-- AI Translate Subtitle Modal -->
+{#if isTranslateModalOpen && translateTargetFile}
+  <div
+    transition:fade={{ duration: 200, easing: cubicOut }}
+    class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl overflow-y-auto"
+  >
+    <div
+      transition:scale={{ duration: 260, start: 0.94, opacity: 0, easing: cubicOut }}
+      class="glass-panel-elevated rounded-3xl p-6 max-w-xl w-full shadow-2xl relative space-y-4 border border-slate-200/80 dark:border-white/15 my-8"
+    >
+      <div class="flex justify-between items-center">
+        <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <Languages class="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+          <span>AI Subtitle Translator</span>
+        </h3>
+        <button
+          onclick={() => (isTranslateModalOpen = false)}
+          class="btn-expressive p-2 rounded-full glass-pill text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+        >
+          <X class="w-4 h-4" />
+        </button>
+      </div>
+
+      {#if translateSuccess}
+        <div class="p-3 bg-emerald-500/10 border border-emerald-500/40 rounded-2xl text-xs font-mono text-emerald-600 dark:text-emerald-300 flex items-center justify-between">
+          <span class="flex items-center gap-1.5">
+            <Check class="w-4 h-4" />
+            <span>{translateSuccess}</span>
+          </span>
+          <a href="/translator" class="underline font-bold text-cyan-600 dark:text-cyan-300 ml-2">
+            View in AI Sub &rarr;
+          </a>
+        </div>
+      {/if}
+
+      {#if translateError}
+        <div class="p-3 bg-rose-500/10 border border-rose-500/40 rounded-2xl text-xs font-mono text-rose-600 dark:text-rose-300">
+          {translateError}
+        </div>
+      {/if}
+
+      <form onsubmit={handleQueueTranslate} class="space-y-4 text-xs font-mono">
+        <div class="space-y-1.5">
+          <label for="lib-tr-source" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">SOURCE FILE</label>
+          <input
+            id="lib-tr-source"
+            type="text"
+            readonly
+            value={translateTargetFile.current_path}
+            class="glass-input w-full rounded-2xl px-3.5 py-2.5 text-slate-500 dark:text-slate-400 select-all"
+          />
+        </div>
+
+        {#if translateProbing}
+          <div class="p-3 glass-panel rounded-2xl text-slate-500 dark:text-slate-400 flex items-center gap-2">
+            <RefreshCw class="w-3.5 h-3.5 animate-spin text-cyan-400" />
+            <span>Inspecting embedded subtitle tracks...</span>
+          </div>
+        {:else if translateWarnings.length > 0}
+          <div class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/40 text-amber-700 dark:text-amber-300 space-y-1">
+            {#each translateWarnings as warn}
+              <div>⚠ {warn}</div>
+            {/each}
+          </div>
+        {/if}
+
+        {#if translateTracks.length > 0}
+          <div class="space-y-1.5">
+            <label for="lib-tr-track" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">
+              EXTRACTED SUBTITLE TRACK
+            </label>
+            <select
+              id="lib-tr-track"
+              bind:value={translateStreamIndex}
+              class="glass-input w-full rounded-2xl px-3.5 py-2.5"
+            >
+              {#each translateTracks as track (track.stream_index)}
+                <option
+                  value={track.stream_index}
+                  disabled={!track.is_text_based}
+                  class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white"
+                >
+                  #{track.stream_index} [{track.codec_name.toUpperCase()}] {track.language || 'und'} - {track.title || 'Untitled'}{!track.is_text_based ? ' (Bitmap - unsupported)' : ''}
+                </option>
+              {/each}
+            </select>
+          </div>
+        {/if}
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2 space-y-1.5">
+            <label for="lib-tr-lang" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">TARGET LANGUAGE</label>
+            <select
+              id="lib-tr-lang"
+              bind:value={translateLangPreset}
+              onchange={handleTranslateLangChange}
+              class="glass-input w-full rounded-2xl px-3.5 py-2.5"
+            >
+              {#each TARGET_LANGUAGE_OPTIONS as opt}
+                <option value={opt.label} class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
+                  {opt.label} ({opt.code})
+                </option>
+              {/each}
+              <option value="custom" class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Custom Language...</option>
+            </select>
+            {#if translateLangPreset === 'custom'}
+              <input
+                type="text"
+                required
+                bind:value={translateCustomLang}
+                placeholder="Enter target language..."
+                class="glass-input w-full rounded-2xl px-3.5 py-2 mt-1.5"
+              />
+            {/if}
+          </div>
+
+          <div class="space-y-1.5">
+            <label for="lib-tr-code" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">ISO CODE</label>
+            <input
+              id="lib-tr-code"
+              type="text"
+              bind:value={translateLangCode}
+              oninput={() => updateTranslateOutputSuggestion()}
+              maxlength="8"
+              class="glass-input w-full rounded-2xl px-3.5 py-2.5 lowercase"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="space-y-1.5">
+            <label for="lib-tr-model" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">GEMINI MODEL</label>
+            <select
+              id="lib-tr-model"
+              bind:value={translateModel}
+              class="glass-input w-full rounded-2xl px-3.5 py-2.5"
+            >
+              {#each GEMINI_MODEL_OPTIONS as m}
+                <option value={m.id} class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
+                  {m.label}
+                </option>
+              {/each}
+            </select>
+          </div>
+
+          <div class="space-y-1.5">
+            <label for="lib-tr-mode" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">EMBED MODE</label>
+            <select
+              id="lib-tr-mode"
+              bind:value={translateEmbedMode}
+              class="glass-input w-full rounded-2xl px-3.5 py-2.5"
+            >
+              <option value="mux_keep_original" class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
+                Keep Original + Add Translated
+              </option>
+              <option value="mux_replace" class="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
+                Replace Existing Subtitles
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <label for="lib-tr-target" class="block text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold">OUTPUT VIDEO PATH</label>
+          <input
+            id="lib-tr-target"
+            type="text"
+            bind:value={translateOutputPath}
+            class="glass-input w-full rounded-2xl px-3.5 py-2.5"
+          />
+        </div>
+
+        <div class="flex justify-end gap-3 pt-2">
+          <button
+            type="button"
+            onclick={() => (isTranslateModalOpen = false)}
+            class="btn-expressive px-4 py-2 glass-pill text-slate-700 dark:text-slate-300 rounded-2xl cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isTranslating || translateProbing}
+            class="btn-expressive px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-indigo-500 text-white font-bold rounded-2xl transition-all cursor-pointer disabled:opacity-40 flex items-center gap-2 shadow-[0_0_15px_rgba(0,229,255,0.28)]"
+          >
+            {#if isTranslating}
+              <span class="inline-block animate-spin w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span>
+              <span>Queueing...</span>
+            {:else}
+              <Sparkles class="w-4 h-4" />
+              <span>Translate & Embed</span>
             {/if}
           </button>
         </div>

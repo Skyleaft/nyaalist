@@ -13,6 +13,7 @@
     DownloadCloud,
     Library,
     Film,
+    Languages,
     Settings,
     LogOut,
     LogIn,
@@ -41,6 +42,7 @@
     { href: '/downloads', label: 'Downloads', icon: DownloadCloud, match: (p: string) => p === '/downloads' },
     { href: '/library', label: 'Library', icon: Library, match: (p: string) => p === '/library' },
     { href: '/encoder', label: 'Encoder', icon: Film, match: (p: string) => p === '/encoder' },
+    { href: '/translator', label: 'AI Sub', icon: Languages, match: (p: string) => p === '/translator' },
     { href: '/settings', label: 'Settings', icon: Settings, badge: 'Admin', adminOnly: true, match: (p: string) => p === '/settings' }
   ];
 
