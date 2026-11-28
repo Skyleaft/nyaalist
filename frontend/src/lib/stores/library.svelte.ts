@@ -38,8 +38,9 @@ class LibraryStore {
     this.scanning = true;
     this.error = null;
     try {
-      await api.library.scan();
+      const res = await api.library.scan();
       await this.fetchFiles();
+      return res;
     } catch (err: any) {
       this.error = err.message || 'Scan failed';
       throw err;
